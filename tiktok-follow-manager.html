@@ -9,12 +9,14 @@
     --bg:#0f0f10; --panel:#18181b; --panel2:#202024; --line:#2b2b31;
     --text:#f3f3f5; --muted:#9a9aa5; --pink:#fe2c55; --cyan:#25f4ee;
     --ok:#3ddc84; --warn:#ffb020; --danger:#ff4d4f; --radius:14px;
+    color-scheme:dark;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Noto Sans KR",Roboto,sans-serif;font-size:14px;line-height:1.5}
   a{color:var(--cyan)}
-  header{position:sticky;top:0;z-index:5;background:rgba(15,15,16,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-  .wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+  header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:rgba(15,15,16,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .wrap{max-width:1180px;margin:0 auto;padding-block:0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
   .topbar{display:flex;align-items:center;gap:14px;height:62px}
   .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:-.3px}
   .logo i{display:inline-block;width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--cyan),var(--pink));box-shadow:0 0 0 2px #000 inset}
@@ -49,6 +51,9 @@
   button.btn.cyan{background:var(--cyan);border-color:var(--cyan);color:#000}
   button.btn.danger{background:transparent;border-color:var(--danger);color:var(--danger)}
   button.btn.danger:hover{background:rgba(255,77,79,.12)}
+  button.btn.danger.armed{background:var(--danger);color:#fff}
+  .confirmbox{border:1px solid var(--danger);background:rgba(255,77,79,.08);border-radius:12px;padding:14px 16px;margin-top:12px}
+  .confirmbox p{color:#ffb3b4;margin:0 0 10px}
   button.btn.sm{padding:5px 10px;font-size:12px}
   button.btn:disabled{opacity:.45;cursor:not-allowed}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
@@ -98,7 +103,7 @@
   .mode label b{display:block;margin-bottom:2px}
   .mode label small{color:var(--muted)}
   .mode input{margin-right:8px}
-  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#26262b;border:1px solid var(--line);color:var(--text);padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.2s;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  .toast{position:fixed;left:50%;bottom:calc(26px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#26262b;border:1px solid var(--line);color:var(--text);padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.2s;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,.4)}
   .toast.show{opacity:1}
   .tag{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;margin:3px}
   .tag button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0}
@@ -178,8 +183,9 @@
       <input type="file" id="fileInput" multiple accept=".json,.txt,application/json,text/plain" style="display:none">
     </div>
     <h3>또는 붙여넣기</h3>
-    <textarea id="pasteBox" placeholder='수집 스크립트가 복사한 JSON 내용을 여기에 붙여넣으세요'></textarea>
+    <textarea id="pasteBox" placeholder='수집 스크립트가 복사한 JSON 내용, 또는 데이터 내보내기 TXT 내용을 여기에 붙여넣으세요'></textarea>
     <div class="row" style="margin-top:8px">
+      <select id="pasteKind" title="TXT 파일처럼 구분이 없는 목록일 때 어떤 목록인지 지정"><option value="auto">목록 종류: 자동 판별</option><option value="following">이 내용은 팔로잉 목록</option><option value="followers">이 내용은 팔로워 목록</option></select>
       <button class="btn cyan" id="btnPasteLoad">붙여넣은 내용 불러오기</button>
       <button class="btn" id="btnLoadSample">샘플 데이터로 둘러보기</button>
       <span class="muted" id="loadMsg"></span>
@@ -211,6 +217,7 @@
         <button class="btn danger" id="btnClear">데이터 초기화</button>
       </div>
       <p id="dataMeta" style="margin-top:10px"></p>
+      <div id="exportArea" style="display:none"><div class="row" style="margin:6px 0"><span class="muted" id="exportLabel"></span><button class="btn sm" id="btnExportCopy">내용 복사</button></div><textarea id="exportBox" readonly style="min-height:110px"></textarea></div>
     </div>
   </div>
 </section>
@@ -300,6 +307,7 @@
       <button class="btn primary" id="btnGenUnfollow">🚫 언팔로우 스크립트 생성 &amp; 복사</button>
       <span class="muted" id="unfollowMsg"></span>
     </div>
+    <div class="confirmbox" id="unfollowConfirm" style="display:none"><p id="unfollowConfirmText"></p><div class="row"><button class="btn primary" id="btnConfirmGen">확인, 스크립트 생성 &amp; 복사</button><button class="btn" id="btnCancelGen">취소</button></div></div>
     <textarea class="code" id="unfollowCode" style="margin-top:10px;min-height:140px" readonly placeholder="생성된 스크립트가 여기에 표시됩니다"></textarea>
   </div>
 </section>
@@ -563,8 +571,8 @@ async function TK_UNFOLLOW(cfg){
     if(cur.username) out.push(cur);
     return out.map(normUser).filter(Boolean);
   }
-  function ingest(text,filename){
-    filename=filename||'';
+  function ingest(text,filename,kind){
+    filename=filename||''; kind=kind||'auto';
     let data=null;
     try{ data=JSON.parse(text); }catch(e){}
     let following=null,followers=null,me='',source='';
@@ -580,9 +588,9 @@ async function TK_UNFOLLOW(cfg){
     } else {
       const list=parseTxt(text); source='데이터 내보내기(TXT)';
       if(!list.length) throw new Error('인식할 수 없는 형식입니다: '+(filename||'붙여넣기'));
-      if(/follower|fans/i.test(filename)) followers=list;
-      else if(/following/i.test(filename)) following=list;
-      else { const ans=prompt('"'+filename+'" 파일이 어떤 목록인가요? 1 = 팔로잉, 2 = 팔로워','1'); if(ans==='2') followers=list; else following=list; }
+      if(kind==='followers'||(kind==='auto'&&/follower|fans/i.test(filename))) followers=list;
+      else if(kind==='following'||(kind==='auto'&&/following/i.test(filename))) following=list;
+      else { following=list; toast('목록 종류를 알 수 없어 팔로잉으로 불러왔습니다. 팔로워 목록이면 "목록 종류"를 지정하고 다시 불러오세요.'); }
     }
     if(following) state.following=following;
     if(followers) state.followers=followers;
@@ -595,7 +603,7 @@ async function TK_UNFOLLOW(cfg){
   async function handleFiles(files){
     const msgs=[];
     for(const f of files){
-      try{ const r=await f.text(); const res=ingest(r,f.name);
+      try{ const r=await f.text(); const res=ingest(r,f.name,$('#pasteKind').value);
         msgs.push(f.name+': '+(res.following!=null?'팔로잉 '+res.following+'명 ':'')+(res.followers!=null?'팔로워 '+res.followers+'명':'')); }
       catch(e){ msgs.push(f.name+': 실패 ('+e.message+')'); }
     }
@@ -682,7 +690,10 @@ async function TK_UNFOLLOW(cfg){
   function renderAll(){ renderChip(); renderDash(); renderList(); renderSettings(); }
 
   /* ---------- CSV / JSON ---------- */
-  function download(name,text,type){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:type||'text/plain'})); a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
+  function download(name,text,type){
+    try{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:type||'text/plain'})); a.download=name; document.body.appendChild(a); a.click(); a.remove(); }catch(e){}
+    $('#exportArea').style.display='block'; $('#exportLabel').textContent=name+' · 다운로드가 시작되지 않으면 아래 내용을 복사해 저장하세요'; $('#exportBox').value=text;
+  }
   function csv(){
     const d=derived(); const rows=[['구분','아이디','닉네임','관계','날짜','URL']];
     const relK={mutual:'맞팔',nfb:'나만 팔로우',fan:'팬'};
@@ -705,7 +716,7 @@ async function TK_UNFOLLOW(cfg){
   ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
   drop.addEventListener('drop',e=>handleFiles([...e.dataTransfer.files]));
   $('#btnPasteLoad').onclick=()=>{ const t=$('#pasteBox').value.trim(); if(!t) return toast('붙여넣은 내용이 없습니다.');
-    try{ const r=ingest(t,''); $('#loadMsg').textContent='불러옴: '+(r.following!=null?'팔로잉 '+r.following+'명 ':'')+(r.followers!=null?'팔로워 '+r.followers+'명':''); $('#pasteBox').value=''; toast('불러오기 완료'); go('dash'); }
+    try{ const r=ingest(t,'',$('#pasteKind').value); $('#loadMsg').textContent='불러옴: '+(r.following!=null?'팔로잉 '+r.following+'명 ':'')+(r.followers!=null?'팔로워 '+r.followers+'명':''); $('#pasteBox').value=''; toast('불러오기 완료'); go('dash'); }
     catch(e){ toast('실패: '+e.message); } };
   $('#btnLoadSample').onclick=()=>{
     const mk=(n,p)=>Array.from({length:n},(_,i)=>({username:p+(i+1),nickname:p==='creator_'?'크리에이터 '+(i+1):'사용자 '+(i+1),date:new Date(Date.now()-i*86400000*3).toISOString()}));
@@ -714,7 +725,11 @@ async function TK_UNFOLLOW(cfg){
   };
   $('#btnExportJson').onclick=()=>download('tiktok_follow_backup_'+(state.me||'me')+'.json',JSON.stringify(Object.assign({format:'tk-follow-manager',version:1},state),null,2),'application/json');
   $('#btnExportCsv').onclick=()=>download('tiktok_follow_'+(state.me||'me')+'.csv',csv(),'text/csv');
-  $('#btnClear').onclick=()=>{ if(confirm('저장된 팔로잉/팔로워 데이터를 모두 지울까요? (제외 목록과 설정은 유지)')){ state={me:'',source:'',importedAt:'',following:[],followers:[]}; ui.selected.clear(); save(); renderAll(); toast('초기화됨'); } };
+  $('#btnExportCopy').onclick=async()=>{ await copy($('#exportBox').value); toast('복사됨'); };
+  $('#btnClear').onclick=()=>{ const b=$('#btnClear');
+    if(!b.classList.contains('armed')){ b.classList.add('armed'); b.textContent='정말 지울까요? 한 번 더 클릭'; clearTimeout(b._t); b._t=setTimeout(()=>{b.classList.remove('armed');b.textContent='데이터 초기화';},4000); return; }
+    clearTimeout(b._t); b.classList.remove('armed'); b.textContent='데이터 초기화';
+    state={me:'',source:'',importedAt:'',following:[],followers:[]}; ui.selected.clear(); save(); renderAll(); $('#exportArea').style.display='none'; toast('초기화됨 (제외 목록과 설정은 유지)'); };
   $('#filterSeg').onclick=e=>{ const b=e.target.closest('button'); if(b){ ui.filter=b.dataset.f; ui.page=1; renderList(); } };
   $('#q').oninput=e=>{ ui.q=e.target.value; ui.page=1; renderList(); };
   $('#sort').onchange=e=>{ ui.sort=e.target.value; renderList(); };
@@ -725,18 +740,23 @@ async function TK_UNFOLLOW(cfg){
   $('#btnWl').onclick=()=>{ if(!ui.selected.size) return toast('선택된 계정이 없습니다.'); const s=new Set(settings.whitelist.map(lower)); ui.selected.forEach(u=>{ if(!s.has(lower(u))) settings.whitelist.push(u); }); save(); renderAll(); toast('제외 목록에 추가되었습니다.'); };
   $('#btnSelUnfollow').onclick=()=>{ if(!ui.selected.size) return toast('먼저 계정을 선택하세요.'); $('input[name=umode][value=selected]').checked=true; $('#allConfirmBox').style.display='none'; renderDash(); go('unfollow'); };
   $$('input[name=umode]').forEach(r=>r.onchange=()=>{ $('#allConfirmBox').style.display=$('input[name=umode]:checked').value==='all'?'block':'none'; });
+  async function emitUnfollow(r){
+    $('#unfollowCode').value=r.code; await copy(r.code);
+    $('#unfollowMsg').textContent='복사됨 · 대상 '+r.count+'명'+(r.cfg.dryRun?' (드라이런)':'');
+    toast('언팔로우 스크립트가 복사되었습니다. 틱톡 프로필 페이지 콘솔에 붙여넣어 실행하세요.');
+  }
   $('#btnGenUnfollow').onclick=async()=>{
+    $('#unfollowConfirm').style.display='none';
     try{
       const r=unfollowCode();
-      if(!r.cfg.dryRun){
-        const what=r.cfg.mode==='all'?'내가 팔로우한 모든 계정('+r.count+'명)':r.count+'명';
-        if(!confirm(what+'을(를) 언팔로우하는 스크립트를 생성합니다. 이번 실행 최대 '+r.cfg.maxCount+'명. 계속할까요?')) return;
-      }
-      $('#unfollowCode').value=r.code; await copy(r.code);
-      $('#unfollowMsg').textContent='복사됨 · 대상 '+r.count+'명'+(r.cfg.dryRun?' (드라이런)':'');
-      toast('언팔로우 스크립트가 복사되었습니다. 틱톡 프로필 페이지 콘솔에 붙여넣어 실행하세요.');
+      if(r.cfg.dryRun) return emitUnfollow(r);
+      const what=r.cfg.mode==='all'?'내가 팔로우한 모든 계정('+r.count+'명)':r.count+'명';
+      $('#unfollowConfirmText').textContent=what+'을(를) 언팔로우하는 스크립트를 생성합니다. 이번 실행 최대 '+r.cfg.maxCount+'명. 계속할까요?';
+      $('#unfollowConfirm').style.display='block';
     }catch(e){ toast(e.message); $('#unfollowMsg').textContent=e.message; }
   };
+  $('#btnConfirmGen').onclick=async()=>{ $('#unfollowConfirm').style.display='none'; try{ await emitUnfollow(unfollowCode()); }catch(e){ toast(e.message); $('#unfollowMsg').textContent=e.message; } };
+  $('#btnCancelGen').onclick=()=>{ $('#unfollowConfirm').style.display='none'; };
   $('#btnWlAdd').onclick=()=>{ const v=$('#wlInput').value.split(/[,\s]+/).map(s=>s.replace(/^@/,'').trim()).filter(Boolean); if(!v.length) return; const s=new Set(settings.whitelist.map(lower)); v.forEach(u=>{ if(!s.has(lower(u))){settings.whitelist.push(u);s.add(lower(u));} }); $('#wlInput').value=''; save(); renderAll(); toast('추가됨'); };
   $('#wlInput').onkeydown=e=>{ if(e.key==='Enter') $('#btnWlAdd').click(); };
   const splitTexts=v=>v.split(',').map(s=>s.trim()).filter(Boolean);
