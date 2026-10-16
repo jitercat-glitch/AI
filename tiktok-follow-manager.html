@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TikTok 팔로우 매니저</title>
+<style>
+  :root{
+    --bg:#0f0f10; --panel:#18181b; --panel2:#202024; --line:#2b2b31;
+    --text:#f3f3f5; --muted:#9a9aa5; --pink:#fe2c55; --cyan:#25f4ee;
+    --ok:#3ddc84; --warn:#ffb020; --danger:#ff4d4f; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Noto Sans KR",Roboto,sans-serif;font-size:14px;line-height:1.5}
+  a{color:var(--cyan)}
+  header{position:sticky;top:0;z-index:5;background:rgba(15,15,16,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+  .topbar{display:flex;align-items:center;gap:14px;height:62px}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:-.3px}
+  .logo i{display:inline-block;width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--cyan),var(--pink));box-shadow:0 0 0 2px #000 inset}
+  .chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--muted);font-size:12px;white-space:nowrap}
+  .chip b{color:var(--text)}
+  .chip .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .chip.on .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .spacer{flex:1}
+  nav{display:flex;gap:4px;overflow-x:auto;padding-bottom:10px}
+  nav button{background:transparent;border:1px solid transparent;color:var(--muted);padding:8px 14px;border-radius:10px;cursor:pointer;font-size:14px;white-space:nowrap}
+  nav button:hover{color:var(--text);background:var(--panel)}
+  nav button.active{color:var(--text);background:var(--panel2);border-color:var(--line)}
+  main{padding:22px 0 60px}
+  section.tab{display:none}
+  section.tab.active{display:block}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px}
+  .card h2{margin:0 0 6px;font-size:17px}
+  .card h3{margin:14px 0 6px;font-size:14px;color:var(--text)}
+  .card p{margin:4px 0 10px;color:var(--muted)}
+  .grid{display:grid;gap:14px}
+  .grid.c2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+  .grid.c5{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;cursor:pointer;transition:border-color .15s}
+  .stat:hover{border-color:var(--pink)}
+  .stat .n{font-size:28px;font-weight:800;letter-spacing:-.5px}
+  .stat .l{color:var(--muted);font-size:12px}
+  .stat.pink .n{color:var(--pink)} .stat.cyan .n{color:var(--cyan)} .stat.ok .n{color:var(--ok)} .stat.warn .n{color:var(--warn)}
+  button.btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+  button.btn:hover{border-color:#44444d;background:#26262b}
+  button.btn.primary{background:var(--pink);border-color:var(--pink);color:#fff}
+  button.btn.primary:hover{filter:brightness(1.1)}
+  button.btn.cyan{background:var(--cyan);border-color:var(--cyan);color:#000}
+  button.btn.danger{background:transparent;border-color:var(--danger);color:var(--danger)}
+  button.btn.danger:hover{background:rgba(255,77,79,.12)}
+  button.btn.sm{padding:5px 10px;font-size:12px}
+  button.btn:disabled{opacity:.45;cursor:not-allowed}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  input[type=text],input[type=number],input[type=search],select,textarea{background:#101013;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:9px 12px;font-size:13px;font-family:inherit;outline:none}
+  input:focus,textarea:focus,select:focus{border-color:var(--cyan)}
+  textarea{width:100%;min-height:120px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.45}
+  textarea.code{background:#0b0b0d;color:#d7f7f4}
+  label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+  label.f input,label.f select{width:100%}
+  label.ck{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:var(--text)}
+  .steps{counter-reset:s;padding:0;margin:8px 0 0;list-style:none}
+  .steps li{counter-increment:s;position:relative;padding:8px 0 8px 38px;border-top:1px dashed var(--line)}
+  .steps li:first-child{border-top:0}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:9px;width:26px;height:26px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:var(--cyan)}
+  .steps li b{color:var(--text)}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--muted);cursor:pointer;transition:.15s}
+  .drop:hover,.drop.over{border-color:var(--cyan);color:var(--text);background:rgba(37,244,238,.04)}
+  .note{border-left:3px solid var(--warn);background:rgba(255,176,32,.08);padding:10px 14px;border-radius:8px;color:#f5d9a3;margin:10px 0}
+  .note.red{border-color:var(--danger);background:rgba(255,77,79,.08);color:#ffb3b4}
+  .note.blue{border-color:var(--cyan);background:rgba(37,244,238,.06);color:#bff6f3}
+  kbd{background:#2a2a30;border:1px solid #3a3a42;border-bottom-width:2px;border-radius:5px;padding:1px 6px;font-size:11px;font-family:inherit}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .toolbar .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .toolbar .seg button{background:transparent;border:0;color:var(--muted);padding:8px 12px;cursor:pointer;font-size:13px}
+  .toolbar .seg button.active{background:var(--panel2);color:var(--text)}
+  .toolbar .seg button span{opacity:.6;font-size:11px;margin-left:4px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+  th{color:var(--muted);font-weight:600;font-size:12px;position:sticky;top:0;background:var(--panel)}
+  tr:hover td{background:rgba(255,255,255,.025)}
+  .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#2a2a30,#3a3a44);display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:14px;text-transform:uppercase}
+  .uname{font-weight:700}
+  .nick{color:var(--muted);font-size:12px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid}
+  .badge.mutual{color:var(--ok);border-color:rgba(61,220,132,.4);background:rgba(61,220,132,.08)}
+  .badge.nfb{color:var(--warn);border-color:rgba(255,176,32,.4);background:rgba(255,176,32,.08)}
+  .badge.fan{color:var(--cyan);border-color:rgba(37,244,238,.4);background:rgba(37,244,238,.08)}
+  .badge.wl{color:#c9b8ff;border-color:rgba(170,140,255,.4);background:rgba(170,140,255,.1)}
+  .tablewrap{max-height:62vh;overflow:auto;border:1px solid var(--line);border-radius:12px}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  .pager{display:flex;gap:8px;align-items:center;justify-content:center;padding:12px;color:var(--muted)}
+  .opt{display:flex;gap:12px;flex-wrap:wrap}
+  .opt label.f{min-width:150px;flex:1}
+  .mode{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .mode label{display:block;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;background:var(--panel2)}
+  .mode label:has(input:checked){border-color:var(--pink);box-shadow:0 0 0 1px var(--pink) inset}
+  .mode label b{display:block;margin-bottom:2px}
+  .mode label small{color:var(--muted)}
+  .mode input{margin-right:8px}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#26262b;border:1px solid var(--line);color:var(--text);padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.2s;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  .toast.show{opacity:1}
+  .tag{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;margin:3px}
+  .tag button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0}
+  .tag button:hover{color:var(--danger)}
+  details{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-top:8px}
+  summary{cursor:pointer;color:var(--muted)}
+  code{background:#101013;border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:12px}
+  .muted{color:var(--muted)}
+  @media (max-width:640px){ .topbar{height:auto;padding:10px 0;flex-wrap:wrap} .tablewrap{max-height:none} }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="logo"><i></i> TikTok 팔로우 매니저</div>
+      <div class="spacer"></div>
+      <div class="chip" id="acctChip"><span class="dot"></span><span>연동 안 됨</span></div>
+    </div>
+    <nav id="nav">
+      <button data-tab="connect" class="active">① 계정 연동</button>
+      <button data-tab="dash">② 대시보드</button>
+      <button data-tab="list">③ 팔로잉 / 팔로워 목록</button>
+      <button data-tab="unfollow">④ 언팔로우 작업</button>
+      <button data-tab="settings">⑤ 설정 · 도움말</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ===================== 연동 ===================== -->
+<section class="tab active" id="tab-connect">
+  <div class="note blue">
+    <b>작동 방식</b> — 틱톡 공식 API는 팔로워/팔로잉 목록 조회와 언팔로우 기능을 외부에 제공하지 않습니다.
+    그래서 이 프로그램은 <b>내 브라우저에 로그인된 틱톡 세션</b>을 그대로 사용합니다. 아이디/비밀번호를 입력받지 않으며, 데이터는 이 브라우저(localStorage)에만 저장됩니다.
+  </div>
+
+  <div class="grid c2">
+    <div class="card">
+      <h2>방법 A · 브라우저 연동 (실시간 수집, 추천)</h2>
+      <p>PC 크롬/엣지에서 틱톡에 로그인한 뒤, 수집 스크립트를 한 번 실행하면 팔로잉·팔로워 목록 파일이 자동 저장됩니다.</p>
+      <ol class="steps">
+        <li><b>PC 브라우저</b>로 <a href="https://www.tiktok.com" target="_blank" rel="noopener">tiktok.com</a>에 로그인하고 <b>내 프로필 페이지</b>(주소가 <code>tiktok.com/@내아이디</code>)를 엽니다.</li>
+        <li>아래 <b>수집 스크립트 복사</b> 버튼을 누릅니다.</li>
+        <li>틱톡 탭에서 <kbd>F12</kbd> → <b>Console(콘솔)</b> 탭 → 붙여넣기 <kbd>Ctrl</kbd>+<kbd>V</kbd> → <kbd>Enter</kbd>.<br><span class="muted">크롬에서 처음엔 <code>allow pasting</code> 을 입력하라고 나오면 그대로 입력 후 다시 붙여넣기 하세요.</span></li>
+        <li>팝업이 자동으로 열리고 스크롤되며 수집됩니다. 끝나면 <code>tiktok_follow_….json</code> 파일이 다운로드되고 클립보드에도 복사됩니다.</li>
+        <li>그 파일을 아래 <b>파일 불러오기</b>에 넣거나, 클립보드 내용을 <b>붙여넣기</b> 칸에 붙여넣으세요.</li>
+      </ol>
+      <div class="row" style="margin-top:10px">
+        <label class="ck"><input type="checkbox" id="cFollowing" checked> 팔로잉 수집</label>
+        <label class="ck"><input type="checkbox" id="cFollowers" checked> 팔로워 수집</label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn primary" id="btnCopyCollect">📋 수집 스크립트 복사</button>
+        <button class="btn" id="btnShowCollect">코드 보기</button>
+      </div>
+      <textarea class="code" id="collectCode" style="display:none;margin-top:10px;min-height:160px" readonly></textarea>
+    </div>
+
+    <div class="card">
+      <h2>방법 B · 틱톡 데이터 내보내기 파일</h2>
+      <p>틱톡 앱에서 받은 공식 데이터 파일을 불러옵니다. 신청 후 파일 준비까지 보통 하루 정도 걸립니다.</p>
+      <ol class="steps">
+        <li>틱톡 앱 → <b>프로필</b> → ☰ → <b>설정 및 개인정보</b> → <b>계정</b> → <b>내 데이터 다운로드</b></li>
+        <li>파일 형식 <b>JSON</b> 선택 → 요청 → 준비되면 다운로드</li>
+        <li>압축을 풀고 <code>user_data_tiktok.json</code> 을 아래에 넣으세요. (TXT로 받았다면 <code>Following.txt</code>, <code>Follower.txt</code> 두 파일을 넣어도 됩니다)</li>
+      </ol>
+      <div class="note">데이터 내보내기 파일은 아이디(UserName)만 포함되어 닉네임은 표시되지 않습니다.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>파일 불러오기</h2>
+    <div class="drop" id="drop">
+      여기에 파일을 끌어다 놓거나 클릭해서 선택 (JSON / TXT, 여러 개 가능)
+      <input type="file" id="fileInput" multiple accept=".json,.txt,application/json,text/plain" style="display:none">
+    </div>
+    <h3>또는 붙여넣기</h3>
+    <textarea id="pasteBox" placeholder='수집 스크립트가 복사한 JSON 내용을 여기에 붙여넣으세요'></textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="btn cyan" id="btnPasteLoad">붙여넣은 내용 불러오기</button>
+      <button class="btn" id="btnLoadSample">샘플 데이터로 둘러보기</button>
+      <span class="muted" id="loadMsg"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 대시보드 ===================== -->
+<section class="tab" id="tab-dash">
+  <div class="card">
+    <h2 id="dashTitle">대시보드</h2>
+    <p id="dashSub">연동된 데이터가 없습니다. ① 계정 연동 탭에서 먼저 데이터를 불러오세요.</p>
+    <div class="grid c5" id="stats"></div>
+  </div>
+  <div class="grid c2">
+    <div class="card">
+      <h2>빠른 작업</h2>
+      <div class="row">
+        <button class="btn" data-go="list" data-filter="nfb">나를 안 팔로우하는 계정 보기</button>
+        <button class="btn" data-go="list" data-filter="fan">맞팔 안 한 팬 보기</button>
+        <button class="btn" data-go="unfollow">언팔로우 작업으로 이동</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>데이터</h2>
+      <div class="row">
+        <button class="btn" id="btnExportJson">JSON 백업</button>
+        <button class="btn" id="btnExportCsv">CSV 내보내기</button>
+        <button class="btn danger" id="btnClear">데이터 초기화</button>
+      </div>
+      <p id="dataMeta" style="margin-top:10px"></p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 목록 ===================== -->
+<section class="tab" id="tab-list">
+  <div class="card">
+    <div class="toolbar">
+      <div class="seg" id="filterSeg">
+        <button data-f="following" class="active">팔로잉<span id="n-following">0</span></button>
+        <button data-f="followers">팔로워<span id="n-followers">0</span></button>
+        <button data-f="mutual">맞팔<span id="n-mutual">0</span></button>
+        <button data-f="nfb">나만 팔로우 (안 맞팔)<span id="n-nfb">0</span></button>
+        <button data-f="fan">팬 (내가 안 팔로우)<span id="n-fan">0</span></button>
+      </div>
+      <input type="search" id="q" placeholder="아이디 / 닉네임 검색" style="min-width:200px">
+      <select id="sort">
+        <option value="order">원래 순서</option>
+        <option value="name">아이디 A→Z</option>
+        <option value="date">날짜 최신순</option>
+      </select>
+      <div class="spacer"></div>
+      <button class="btn sm" id="btnSelAll">현재 목록 전체 선택</button>
+      <button class="btn sm" id="btnSelNone">선택 해제</button>
+      <button class="btn sm" id="btnWl">선택 → 제외목록에 추가</button>
+      <button class="btn sm primary" id="btnSelUnfollow">선택한 계정 언팔로우 →</button>
+    </div>
+    <div class="muted" style="margin-bottom:8px">선택됨: <b id="selCount">0</b>명 · 표시 <b id="shownCount">0</b>명</div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:36px"><input type="checkbox" id="ckHead"></th><th style="width:46px"></th><th>계정</th><th>관계</th><th>날짜</th><th style="width:80px"></th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="empty" id="listEmpty" style="display:none">표시할 계정이 없습니다.</div>
+    </div>
+    <div class="pager" id="pager"></div>
+  </div>
+</section>
+
+<!-- ===================== 언팔로우 ===================== -->
+<section class="tab" id="tab-unfollow">
+  <div class="note red">
+    <b>주의</b> — 언팔로우는 되돌릴 수 없습니다(다시 팔로우해야 함). 짧은 시간에 너무 많이 실행하면 틱톡이 일시적으로 팔로우 기능을 제한할 수 있으므로 기본 딜레이를 유지하고 하루 150~200명 이내를 권장합니다.
+    이 프로그램은 <b>팔로워 삭제(팔로워 취소) 기능은 제공하지 않습니다.</b> 오직 내가 팔로우한 계정(팔로잉)만 취소합니다.
+  </div>
+
+  <div class="card">
+    <h2>1. 대상 선택</h2>
+    <div class="mode">
+      <label><input type="radio" name="umode" value="selected" checked><b>선택한 계정만</b><small>목록 탭에서 체크한 계정 · 현재 <span id="umSelected">0</span>명</small></label>
+      <label><input type="radio" name="umode" value="nfb"><b>나를 안 팔로우하는 계정 전체</b><small>내가 팔로우하지만 맞팔 안 한 계정 · 현재 <span id="umNfb">0</span>명</small></label>
+      <label><input type="radio" name="umode" value="all"><b>팔로잉 전체 취소</b><small>내가 팔로우한 모든 계정 언팔로우 · 현재 <span id="umAll">0</span>명 (팔로워는 그대로 유지)</small></label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <label class="ck"><input type="checkbox" id="uExcludeWl" checked> 제외 목록(화이트리스트) 계정은 건너뛰기 (<span id="umWl">0</span>명)</label>
+    </div>
+    <div id="allConfirmBox" style="display:none;margin-top:12px">
+      <div class="note red">팔로잉 전체 취소를 진행하려면 아래에 <b>전체취소</b> 라고 입력하세요.</div>
+      <input type="text" id="allConfirm" placeholder="전체취소">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2. 속도 · 안전 옵션</h2>
+    <div class="opt">
+      <label class="f">클릭 간격 최소(초)<input type="number" id="oDelayMin" value="3" min="1" step="0.5"></label>
+      <label class="f">클릭 간격 최대(초)<input type="number" id="oDelayMax" value="6" min="1" step="0.5"></label>
+      <label class="f">이번 실행 최대 인원<input type="number" id="oMax" value="150" min="1"></label>
+      <label class="f">N명마다 긴 휴식<input type="number" id="oBatch" value="30" min="0"></label>
+      <label class="f">긴 휴식 시간(초)<input type="number" id="oBatchPause" value="120" min="0"></label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label class="ck"><input type="checkbox" id="oDry"> 드라이런 (실제로 클릭하지 않고 대상만 콘솔에 출력)</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3. 실행</h2>
+    <ol class="steps">
+      <li>틱톡 탭에서 <b>내 프로필 페이지</b>(<code>tiktok.com/@내아이디</code>)를 열어 둡니다.</li>
+      <li>아래 <b>언팔로우 스크립트 생성 &amp; 복사</b>를 누르고 콘솔(<kbd>F12</kbd>)에 붙여넣어 실행합니다.</li>
+      <li>팔로잉 팝업이 자동으로 열리고 하나씩 언팔로우됩니다. 진행 상황은 콘솔에 표시됩니다.</li>
+      <li>중간에 멈추려면 콘솔에 <code>window.__TK_STOP = true</code> 를 입력하거나 탭을 새로고침하세요.</li>
+      <li>끝난 뒤에는 ① 탭에서 수집 스크립트를 다시 실행해 목록을 갱신하세요.</li>
+    </ol>
+    <div class="row" style="margin-top:12px">
+      <button class="btn primary" id="btnGenUnfollow">🚫 언팔로우 스크립트 생성 &amp; 복사</button>
+      <span class="muted" id="unfollowMsg"></span>
+    </div>
+    <textarea class="code" id="unfollowCode" style="margin-top:10px;min-height:140px" readonly placeholder="생성된 스크립트가 여기에 표시됩니다"></textarea>
+  </div>
+</section>
+
+<!-- ===================== 설정 ===================== -->
+<section class="tab" id="tab-settings">
+  <div class="grid c2">
+    <div class="card">
+      <h2>제외 목록 (화이트리스트)</h2>
+      <p>절대 언팔로우하지 않을 계정. 목록 탭에서 선택 후 추가하거나 아이디를 직접 입력하세요.</p>
+      <div class="row">
+        <input type="text" id="wlInput" placeholder="@아이디 (쉼표로 여러 개)" style="flex:1">
+        <button class="btn" id="btnWlAdd">추가</button>
+      </div>
+      <div id="wlTags" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
+      <h2>버튼 문구 (틱톡 화면 언어)</h2>
+      <p>언팔로우 스크립트는 팝업 안에서 아래 문구와 <b>정확히 일치</b>하는 버튼만 클릭합니다. 틱톡 언어 설정이 다르면 그 언어의 문구를 추가하세요.</p>
+      <label class="f">언팔로우할 버튼 문구 (쉼표 구분)<input type="text" id="sUnfollowTexts"></label>
+      <label class="f" style="margin-top:8px">확인 팝업 버튼 문구 (쉼표 구분)<input type="text" id="sConfirmTexts"></label>
+      <div class="row" style="margin-top:10px"><button class="btn" id="btnSaveTexts">저장</button><button class="btn" id="btnResetTexts">기본값</button></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>도움말 · 자주 묻는 질문</h2>
+    <details><summary>왜 틱톡 로그인 버튼이 없나요?</summary><p>틱톡 공식 Login Kit는 프로필·통계(팔로워 수 등)만 제공하고, 팔로워/팔로잉 <b>목록</b>이나 <b>언팔로우</b> API는 제공하지 않습니다. 그래서 이미 로그인된 브라우저 탭에서 실행되는 스크립트 방식을 사용합니다. 비밀번호를 어디에도 입력하지 않습니다.</p></details>
+    <details><summary>스크립트 실행 시 "요소를 찾을 수 없습니다" 오류</summary><p>반드시 <b>본인 프로필 페이지</b>(URL이 <code>/@내아이디</code>)에서 실행해야 합니다. 틱톡이 화면 구조를 바꾼 경우에도 발생할 수 있습니다. 페이지를 새로고침한 뒤 다시 시도해 보세요.</p></details>
+    <details><summary>수집된 인원이 실제보다 적어요</summary><p>틱톡 웹의 팝업은 스크롤 로딩이 느릴 수 있습니다. 설정에서 스크롤 대기 시간을 늘리거나(아래), 방법 B의 공식 데이터 내보내기를 사용하면 전체 목록을 정확히 받을 수 있습니다.</p>
+      <div class="opt" style="margin-top:6px"><label class="f">스크롤 대기 최소(ms)<input type="number" id="sScrollMin" value="900"></label><label class="f">스크롤 대기 최대(ms)<input type="number" id="sScrollMax" value="1600"></label><label class="f">변화 없을 때 종료 횟수<input type="number" id="sStale" value="6"></label></div></details>
+    <details><summary>언팔로우 중 아무것도 안 눌려요</summary><p>틱톡 화면 언어가 한국어/영어가 아니면 버튼 문구를 위 설정에 추가하세요. 또 드라이런 옵션이 켜져 있지 않은지 확인하세요. 콘솔 로그에 어떤 버튼 문구가 발견됐는지 출력됩니다.</p></details>
+    <details><summary>데이터는 어디에 저장되나요?</summary><p>이 HTML 파일을 연 브라우저의 localStorage에만 저장됩니다. 서버로 전송되지 않으며 '데이터 초기화'로 지울 수 있습니다.</p></details>
+  </div>
+</section>
+
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   틱톡 사이트(tiktok.com) 안에서 실행되는 스크립트들.
+   페이지 내부의 다른 함수에 의존하지 않도록 자급자족 형태로 작성.
+   ============================================================ */
+
+async function TK_COLLECT(cfg){
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const rnd=(a,b)=>a+Math.random()*(b-a);
+  const log=(...a)=>console.log('%c[TK 수집]','color:#fe2c55;font-weight:bold',...a);
+  if(!/tiktok\.com$/.test(location.hostname)){alert('tiktok.com 탭에서 실행하세요.');return;}
+  window.__TK_STOP=false;
+  const me=((document.querySelector('h1[data-e2e="user-title"]')||{}).textContent||'').trim()||((location.pathname.match(/\/@([^\/?#]+)/)||[])[1]||'');
+  const getDialog=()=>document.querySelector('[data-e2e="follow-info-popup"]')||document.querySelector('[role="dialog"]');
+  function findScroller(root){
+    let best=null;
+    root.querySelectorAll('*').forEach(el=>{
+      const s=getComputedStyle(el);
+      if(/(auto|scroll)/.test(s.overflowY)&&el.scrollHeight>el.clientHeight+10){ if(!best||el.scrollHeight>best.scrollHeight) best=el; }
+    });
+    return best;
+  }
+  const userOf=a=>{const m=(a.getAttribute('href')||'').match(/\/@([^\/?#]+)/);return m?decodeURIComponent(m[1]):null;};
+  async function openModal(kind){
+    const el=document.querySelector('[data-e2e="'+kind+'-count"]');
+    if(!el) throw new Error(kind+'-count 요소를 찾을 수 없습니다. 본인 프로필 페이지(tiktok.com/@아이디)에서 실행하세요.');
+    (el.parentElement||el).click(); el.click();
+    for(let i=0;i<40;i++){ await sleep(150); if(getDialog()) break; }
+    if(!getDialog()) throw new Error('목록 팝업이 열리지 않았습니다. 페이지를 새로고침 후 다시 시도하세요.');
+    await sleep(1000);
+  }
+  async function closeModal(){
+    const d=getDialog();
+    if(d){
+      const btn=d.querySelector('[data-e2e="modal-close-inner-button"]')||[...d.querySelectorAll('button,div[role="button"]')].find(b=>/close|닫기/i.test(b.getAttribute('aria-label')||''));
+      if(btn) btn.click();
+    }
+    document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',keyCode:27,bubbles:true}));
+    await sleep(900);
+  }
+  async function collect(kind){
+    log(kind+' 목록 팝업 여는 중...');
+    await openModal(kind);
+    const map=new Map(); let stale=0,last=0;
+    while(!window.__TK_STOP){
+      const dlg=getDialog(); if(!dlg){log('팝업이 닫혔습니다. 수집 중단');break;}
+      dlg.querySelectorAll('a[href*="/@"]').forEach(a=>{
+        const u=userOf(a); if(!u||map.has(u)) return;
+        const item=a.closest('li')||(a.parentElement&&a.parentElement.parentElement)||a;
+        const btn=item.querySelector('button');
+        const texts=[...item.querySelectorAll('p,span,h3,h4,div')].map(x=>x.textContent.trim()).filter(t=>t&&t.length<60&&!t.includes('\n'));
+        const nick=texts.find(t=>t!==u&&t!=='@'+u&&!(btn&&t===btn.textContent.trim()))||'';
+        map.set(u,{username:u,nickname:nick,url:'https://www.tiktok.com/@'+u,button:btn?btn.textContent.trim():''});
+      });
+      if(map.size===last) stale++; else {stale=0;last=map.size;log(kind+' '+map.size+'명 수집 중...');}
+      if(stale>=cfg.staleRounds) break;
+      const s=findScroller(dlg); if(s) s.scrollTop=s.scrollHeight; else window.scrollTo(0,document.body.scrollHeight);
+      await sleep(rnd(cfg.scrollMin,cfg.scrollMax));
+    }
+    await closeModal();
+    log(kind+' 수집 완료: '+map.size+'명');
+    return [...map.values()];
+  }
+  const out={format:'tk-follow-manager',version:1,source:'web',me,exportedAt:new Date().toISOString(),following:[],followers:[]};
+  try{
+    if(cfg.collectFollowing) out.following=await collect('following');
+    if(cfg.collectFollowers) out.followers=await collect('followers');
+  }catch(e){ console.error(e); alert('[TK 수집] 오류: '+e.message); }
+  const json=JSON.stringify(out,null,2);
+  try{
+    const blob=new Blob([json],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='tiktok_follow_'+(me||'me')+'_'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a); a.click(); a.remove();
+  }catch(e){ log('다운로드 실패, 아래 JSON을 직접 복사하세요'); }
+  try{ await navigator.clipboard.writeText(json); log('클립보드에 복사되었습니다. 관리 페이지의 "붙여넣기" 칸에 붙여넣으세요.'); }
+  catch(e){ log('클립보드 복사 실패(브라우저 제한). 다운로드된 파일을 사용하세요.'); }
+  window.__TK_RESULT=out;
+  log('완료! 팔로잉 '+out.following.length+'명 / 팔로워 '+out.followers.length+'명. (window.__TK_RESULT 에도 저장됨)');
+  return out;
+}
+
+async function TK_UNFOLLOW(cfg){
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const rnd=(a,b)=>a+Math.random()*(b-a);
+  const log=(...a)=>console.log('%c[TK 언팔로우]','color:#25f4ee;font-weight:bold',...a);
+  if(!/tiktok\.com$/.test(location.hostname)){alert('tiktok.com 탭에서 실행하세요.');return;}
+  window.__TK_STOP=false;
+  const targets=new Set((cfg.targets||[]).map(s=>s.toLowerCase()));
+  const exclude=new Set((cfg.exclude||[]).map(s=>s.toLowerCase()));
+  const unfollowTexts=new Set(cfg.unfollowTexts);
+  const confirmTexts=new Set(cfg.confirmTexts);
+  const getDialog=()=>document.querySelector('[data-e2e="follow-info-popup"]')||document.querySelector('[role="dialog"]');
+  function findScroller(root){
+    let best=null;
+    root.querySelectorAll('*').forEach(el=>{
+      const s=getComputedStyle(el);
+      if(/(auto|scroll)/.test(s.overflowY)&&el.scrollHeight>el.clientHeight+10){ if(!best||el.scrollHeight>best.scrollHeight) best=el; }
+    });
+    return best;
+  }
+  const userOf=a=>{const m=(a.getAttribute('href')||'').match(/\/@([^\/?#]+)/);return m?decodeURIComponent(m[1]):null;};
+  const el=document.querySelector('[data-e2e="following-count"]');
+  if(!el){alert('following-count 요소를 찾을 수 없습니다. 본인 프로필 페이지(tiktok.com/@아이디)에서 실행하세요.');return;}
+  (el.parentElement||el).click(); el.click();
+  for(let i=0;i<40;i++){ await sleep(150); if(getDialog()) break; }
+  if(!getDialog()){alert('팔로잉 팝업이 열리지 않았습니다. 새로고침 후 다시 시도하세요.');return;}
+  await sleep(1000);
+  log('모드: '+(cfg.mode==='all'?'팔로잉 전체 취소':'지정 계정 '+targets.size+'명')+(cfg.dryRun?' [드라이런]':'')+' · 최대 '+cfg.maxCount+'명');
+  log('중지하려면 콘솔에  window.__TK_STOP = true  를 입력하세요.');
+  let done=0,stale=0,known=0; const processed=new Set(); const seenTexts=new Set();
+  while(!window.__TK_STOP&&done<cfg.maxCount){
+    const dlg=getDialog(); if(!dlg){log('팝업이 닫혔습니다. 중단합니다.');break;}
+    let clicked=false;
+    for(const btn of dlg.querySelectorAll('button')){
+      if(window.__TK_STOP||done>=cfg.maxCount) break;
+      const t=btn.textContent.trim(); if(t) seenTexts.add(t);
+      if(!unfollowTexts.has(t)) continue;
+      const item=btn.closest('li')||(btn.parentElement&&btn.parentElement.parentElement)||btn;
+      const a=item.querySelector('a[href*="/@"]'); const u=a?userOf(a):null;
+      if(!u||processed.has(u)) continue;
+      processed.add(u);
+      const lu=u.toLowerCase();
+      if(exclude.has(lu)){log('제외 목록, 건너뜀: @'+u);continue;}
+      if(cfg.mode!=='all'&&!targets.has(lu)) continue;
+      clicked=true;
+      if(cfg.dryRun){ done++; log('[드라이런] '+done+' 언팔로우 대상: @'+u+' (버튼: '+t+')'); await sleep(80); continue; }
+      btn.scrollIntoView({block:'center'});
+      btn.click();
+      await sleep(700);
+      const confirmBtn=[...document.querySelectorAll('button')].find(b=>confirmTexts.has(b.textContent.trim())&&!dlg.contains(b));
+      if(confirmBtn){ confirmBtn.click(); await sleep(500); }
+      done++; log(done+' 언팔로우 완료: @'+u);
+      if(cfg.batchSize&&done%cfg.batchSize===0&&done<cfg.maxCount){ log('휴식 '+Math.round(cfg.batchPauseMs/1000)+'초...'); await sleep(cfg.batchPauseMs); }
+      else await sleep(rnd(cfg.delayMin,cfg.delayMax));
+    }
+    if(window.__TK_STOP||done>=cfg.maxCount) break;
+    if(!clicked){
+      const cur=new Set([...dlg.querySelectorAll('a[href*="/@"]')].map(userOf).filter(Boolean)).size;
+      if(cur===known) stale++; else {stale=0;known=cur;}
+      if(stale>=cfg.staleRounds){ log('목록 끝에 도달했습니다.'); break; }
+      const s=findScroller(dlg); if(s) s.scrollTop=s.scrollHeight; else window.scrollTo(0,document.body.scrollHeight);
+      await sleep(rnd(1000,1800));
+    }
+  }
+  if(done===0) log('클릭된 버튼이 없습니다. 팝업에서 발견된 버튼 문구: '+[...seenTexts].join(' | ')+' → 관리 페이지 설정의 "버튼 문구"에 추가하세요.');
+  log((window.__TK_STOP?'사용자 중지. ':'')+'종료: '+done+'명 처리'+(cfg.dryRun?' (드라이런, 실제 변경 없음)':'')+'. 관리 페이지에서 수집 스크립트를 다시 실행해 목록을 갱신하세요.');
+  return done;
+}
+
+/* ============================================================
+   관리 페이지 로직
+   ============================================================ */
+(function(){
+  const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+  const LS_STATE='tkfm.state.v1', LS_SET='tkfm.settings.v1';
+  const DEFAULT_SET={
+    unfollowTexts:['팔로잉','Following','친구','Friends','フォロー中','友達','关注中','朋友','Siguiendo','Amigos'],
+    confirmTexts:['언팔로우','Unfollow','팔로우 취소','팔로우 해제','フォロー解除','取消关注','Dejar de seguir'],
+    whitelist:[], scrollMin:900, scrollMax:1600, stale:6
+  };
+  let state={me:'',source:'',importedAt:'',following:[],followers:[]};
+  let settings=JSON.parse(JSON.stringify(DEFAULT_SET));
+  let ui={filter:'following',q:'',sort:'order',page:1,per:200,selected:new Set()};
+
+  /* ---------- 저장/불러오기 ---------- */
+  function save(){ try{localStorage.setItem(LS_STATE,JSON.stringify(state));localStorage.setItem(LS_SET,JSON.stringify(settings));}catch(e){} }
+  function load(){
+    try{ const s=JSON.parse(localStorage.getItem(LS_STATE)); if(s&&s.following) state=s; }catch(e){}
+    try{ const s=JSON.parse(localStorage.getItem(LS_SET)); if(s) settings=Object.assign({},DEFAULT_SET,s); }catch(e){}
+  }
+  function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2600); }
+  async function copy(text){ try{ await navigator.clipboard.writeText(text); return true; }catch(e){ const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(_){} ta.remove(); return true; } }
+
+  /* ---------- 파생 데이터 ---------- */
+  const lower=s=>(s||'').toLowerCase();
+  function derived(){
+    const fw=new Map(state.followers.map(u=>[lower(u.username),u]));
+    const fg=new Map(state.following.map(u=>[lower(u.username),u]));
+    const wl=new Set(settings.whitelist.map(lower));
+    const tag=(u,src)=>{ const l=lower(u.username); const inFg=fg.has(l),inFw=fw.has(l);
+      return Object.assign({},u,{rel:inFg&&inFw?'mutual':src==='following'?'nfb':'fan',wl:wl.has(l)}); };
+    const following=state.following.map(u=>tag(u,'following'));
+    const followers=state.followers.map(u=>tag(u,'followers'));
+    return {
+      following, followers,
+      mutual:following.filter(u=>u.rel==='mutual'),
+      nfb:following.filter(u=>u.rel==='nfb'),
+      fan:followers.filter(u=>u.rel==='fan'),
+      hasFollowers:state.followers.length>0
+    };
+  }
+
+  /* ---------- 파싱 ---------- */
+  function normUser(x){
+    const name=(x.username||x.UserName||x.userName||x.uniqueId||x.unique_id||'').toString().replace(/^@/,'').trim();
+    if(!name) return null;
+    return {username:name,nickname:(x.nickname||x.NickName||x.nickName||'').toString().trim(),date:(x.date||x.Date||'').toString(),url:'https://www.tiktok.com/@'+name};
+  }
+  function parseExportJson(obj){
+    const res={following:[],followers:[]};
+    (function walk(node,path){
+      if(Array.isArray(node)){
+        if(node.length&&node.every(x=>x&&typeof x==='object'&&('UserName' in x||'userName' in x||'username' in x))){
+          const key=path.join('/').toLowerCase(); const list=node.map(normUser).filter(Boolean);
+          if(/follower|fans/.test(key)) res.followers.push(...list);
+          else if(/following/.test(key)) res.following.push(...list);
+          return;
+        }
+        node.forEach((x,i)=>walk(x,path.concat(String(i))));
+      } else if(node&&typeof node==='object'){ for(const k of Object.keys(node)) walk(node[k],path.concat(k)); }
+    })(obj,[]);
+    return res;
+  }
+  function parseTxt(text){
+    const out=[]; let cur={};
+    text.split(/\r?\n/).forEach(line=>{
+      const m=line.match(/^\s*(Date|Username|UserName|User Name)\s*:\s*(.+)$/i);
+      if(!m){ if(cur.username){out.push(cur);} cur={}; return; }
+      if(/^date$/i.test(m[1])) cur.date=m[2].trim(); else cur.username=m[2].trim().replace(/^@/,'');
+    });
+    if(cur.username) out.push(cur);
+    return out.map(normUser).filter(Boolean);
+  }
+  function ingest(text,filename){
+    filename=filename||'';
+    let data=null;
+    try{ data=JSON.parse(text); }catch(e){}
+    let following=null,followers=null,me='',source='';
+    if(data&&data.format==='tk-follow-manager'){
+      following=(data.following||[]).map(normUser).filter(Boolean); followers=(data.followers||[]).map(normUser).filter(Boolean); me=data.me||''; source='브라우저 수집';
+      if(!data.following||!data.following.length) following=null; if(!data.followers||!data.followers.length) followers=null;
+      if(data.following&&data.following.length===0&&data.followers&&data.followers.length===0) throw new Error('수집 결과가 비어 있습니다.');
+    } else if(data&&typeof data==='object'){
+      const r=parseExportJson(data); source='데이터 내보내기(JSON)';
+      if(!r.following.length&&!r.followers.length) throw new Error('JSON에서 팔로잉/팔로워 목록을 찾지 못했습니다.');
+      if(r.following.length) following=r.following; if(r.followers.length) followers=r.followers;
+      try{ me=(data.Profile&&data.Profile['Profile Information']&&data.Profile['Profile Information'].ProfileMap&&data.Profile['Profile Information'].ProfileMap.userName)||''; }catch(e){}
+    } else {
+      const list=parseTxt(text); source='데이터 내보내기(TXT)';
+      if(!list.length) throw new Error('인식할 수 없는 형식입니다: '+(filename||'붙여넣기'));
+      if(/follower|fans/i.test(filename)) followers=list;
+      else if(/following/i.test(filename)) following=list;
+      else { const ans=prompt('"'+filename+'" 파일이 어떤 목록인가요? 1 = 팔로잉, 2 = 팔로워','1'); if(ans==='2') followers=list; else following=list; }
+    }
+    if(following) state.following=following;
+    if(followers) state.followers=followers;
+    if(me) state.me=me;
+    state.source=source; state.importedAt=new Date().toISOString();
+    ui.selected.clear();
+    save(); renderAll();
+    return {following:following?following.length:null,followers:followers?followers.length:null};
+  }
+  async function handleFiles(files){
+    const msgs=[];
+    for(const f of files){
+      try{ const r=await f.text(); const res=ingest(r,f.name);
+        msgs.push(f.name+': '+(res.following!=null?'팔로잉 '+res.following+'명 ':'')+(res.followers!=null?'팔로워 '+res.followers+'명':'')); }
+      catch(e){ msgs.push(f.name+': 실패 ('+e.message+')'); }
+    }
+    $('#loadMsg').textContent=msgs.join(' · '); toast('불러오기 완료'); go('dash');
+  }
+
+  /* ---------- 스크립트 생성 ---------- */
+  function collectCode(){
+    const cfg={collectFollowing:$('#cFollowing').checked,collectFollowers:$('#cFollowers').checked,
+      scrollMin:+$('#sScrollMin').value||900,scrollMax:+$('#sScrollMax').value||1600,staleRounds:+$('#sStale').value||6};
+    return '/* TikTok 팔로우 매니저 - 수집 스크립트. 본인 프로필 페이지(tiktok.com/@아이디) 콘솔에서 실행 */\n('+TK_COLLECT.toString()+')('+JSON.stringify(cfg)+');';
+  }
+  function unfollowCode(){
+    const d=derived();
+    const mode=$('input[name=umode]:checked').value;
+    const exWl=$('#uExcludeWl').checked;
+    const wl=settings.whitelist.slice();
+    let targets=[];
+    if(mode==='selected'){ targets=[...ui.selected]; if(!targets.length) throw new Error('목록 탭에서 언팔로우할 계정을 먼저 선택하세요.'); }
+    else if(mode==='nfb'){ if(!d.hasFollowers) throw new Error('팔로워 목록이 없어 맞팔 여부를 판단할 수 없습니다. 팔로워도 수집하세요.'); targets=d.nfb.map(u=>u.username); if(!targets.length) throw new Error('나를 안 팔로우하는 계정이 없습니다.'); }
+    else { if($('#allConfirm').value.trim()!=='전체취소') throw new Error('"전체취소" 를 정확히 입력해야 합니다.'); }
+    if(exWl){ const w=new Set(wl.map(lower)); targets=targets.filter(t=>!w.has(lower(t))); }
+    const delayMin=Math.max(1,+$('#oDelayMin').value||3), delayMax=Math.max(delayMin,+$('#oDelayMax').value||6);
+    const cfg={mode:mode==='all'?'all':'list',targets:mode==='all'?[]:targets,exclude:exWl?wl:[],
+      delayMin:delayMin*1000,delayMax:delayMax*1000,maxCount:Math.max(1,+$('#oMax').value||150),
+      batchSize:Math.max(0,+$('#oBatch').value||0),batchPauseMs:Math.max(0,+$('#oBatchPause').value||0)*1000,
+      dryRun:$('#oDry').checked,unfollowTexts:settings.unfollowTexts,confirmTexts:settings.confirmTexts,staleRounds:+$('#sStale').value||6};
+    const head='/* TikTok 팔로우 매니저 - 언팔로우 스크립트 ('+(cfg.mode==='all'?'팔로잉 전체 취소':'지정 '+targets.length+'명')+(cfg.dryRun?', 드라이런':'')+')\n   본인 프로필 페이지(tiktok.com/@아이디) 콘솔에서 실행. 중지: window.__TK_STOP = true */\n';
+    return {code:head+'('+TK_UNFOLLOW.toString()+')('+JSON.stringify(cfg)+');',count:cfg.mode==='all'?d.following.length:targets.length,cfg};
+  }
+
+  /* ---------- 렌더 ---------- */
+  function go(tab){ $$('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab)); $$('section.tab').forEach(s=>s.classList.toggle('active',s.id==='tab-'+tab)); window.scrollTo({top:0}); }
+  function fmtDate(s){ if(!s) return ''; const d=new Date(s); return isNaN(d)?s:d.toLocaleString('ko-KR',{dateStyle:'short',timeStyle:'short'}); }
+  function esc(s){ return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function renderChip(){
+    const c=$('#acctChip'); const has=state.following.length||state.followers.length;
+    c.classList.toggle('on',!!has);
+    c.innerHTML='<span class="dot"></span>'+(has?'<span><b>@'+esc(state.me||'내 계정')+'</b> · '+esc(state.source)+' · '+fmtDate(state.importedAt)+'</span>':'<span>연동 안 됨</span>');
+  }
+  function renderDash(){
+    const d=derived(); const has=state.following.length||state.followers.length;
+    $('#dashTitle').textContent=has?'@'+(state.me||'내 계정')+' 대시보드':'대시보드';
+    $('#dashSub').textContent=has?(d.hasFollowers?'팔로잉과 팔로워를 비교한 결과입니다. 카드를 누르면 해당 목록으로 이동합니다.':'팔로워 목록이 없어 맞팔 여부는 계산되지 않았습니다.'):'연동된 데이터가 없습니다. ① 계정 연동 탭에서 먼저 데이터를 불러오세요.';
+    const tiles=[['following','팔로잉',d.following.length,'pink'],['followers','팔로워',d.followers.length,'cyan'],['mutual','맞팔',d.mutual.length,'ok'],['nfb','나만 팔로우 (안 맞팔)',d.hasFollowers?d.nfb.length:'-','warn'],['fan','팬 (내가 안 팔로우)',d.fan.length,'']];
+    $('#stats').innerHTML=tiles.map(t=>'<div class="stat '+t[3]+'" data-go="list" data-filter="'+t[0]+'"><div class="n">'+t[2]+'</div><div class="l">'+t[1]+'</div></div>').join('');
+    $('#dataMeta').textContent=has?('출처: '+state.source+' · 불러온 시각: '+fmtDate(state.importedAt)+' · 제외 목록 '+settings.whitelist.length+'명'):'';
+    ['following','followers','mutual','nfb','fan'].forEach(k=>$('#n-'+k).textContent=d[k].length);
+    $('#umSelected').textContent=ui.selected.size; $('#umNfb').textContent=d.nfb.length; $('#umAll').textContent=d.following.length; $('#umWl').textContent=settings.whitelist.length;
+  }
+  function currentList(){
+    const d=derived(); let list=d[ui.filter]||[];
+    if(ui.q){ const q=lower(ui.q); list=list.filter(u=>lower(u.username).includes(q)||lower(u.nickname).includes(q)); }
+    if(ui.sort==='name') list=list.slice().sort((a,b)=>lower(a.username).localeCompare(lower(b.username)));
+    else if(ui.sort==='date') list=list.slice().sort((a,b)=>(new Date(b.date)||0)-(new Date(a.date)||0));
+    return list;
+  }
+  function renderList(){
+    $$('#filterSeg button').forEach(b=>b.classList.toggle('active',b.dataset.f===ui.filter));
+    const list=currentList(); const pages=Math.max(1,Math.ceil(list.length/ui.per)); ui.page=Math.min(ui.page,pages);
+    const slice=list.slice((ui.page-1)*ui.per,ui.page*ui.per);
+    const rel={mutual:'<span class="badge mutual">맞팔</span>',nfb:'<span class="badge nfb">나만 팔로우</span>',fan:'<span class="badge fan">팬</span>'};
+    $('#tbody').innerHTML=slice.map((u,i)=>{
+      const sel=ui.selected.has(u.username);
+      return '<tr><td><input type="checkbox" class="ck" data-u="'+esc(u.username)+'"'+(sel?' checked':'')+(ui.filter==='fan'?' disabled title="내가 팔로우하지 않은 계정"':'')+'></td>'+
+        '<td><span class="av">'+esc((u.nickname||u.username).slice(0,1))+'</span></td>'+
+        '<td><div class="uname">@'+esc(u.username)+'</div>'+(u.nickname?'<div class="nick">'+esc(u.nickname)+'</div>':'')+'</td>'+
+        '<td>'+(rel[u.rel]||'')+(u.wl?' <span class="badge wl">제외</span>':'')+'</td>'+
+        '<td class="muted">'+esc(fmtDate(u.date))+'</td>'+
+        '<td><a href="'+esc(u.url)+'" target="_blank" rel="noopener">프로필 ↗</a></td></tr>';
+    }).join('');
+    $('#listEmpty').style.display=slice.length?'none':'block';
+    $('#shownCount').textContent=list.length; $('#selCount').textContent=ui.selected.size; $('#umSelected').textContent=ui.selected.size;
+    $('#ckHead').checked=slice.length>0&&slice.every(u=>ui.selected.has(u.username));
+    $('#pager').innerHTML=pages>1?'<button class="btn sm" id="pgPrev"'+(ui.page<=1?' disabled':'')+'>이전</button><span>'+ui.page+' / '+pages+'</span><button class="btn sm" id="pgNext"'+(ui.page>=pages?' disabled':'')+'>다음</button>':'';
+    const pp=$('#pgPrev'),pn=$('#pgNext'); if(pp) pp.onclick=()=>{ui.page--;renderList();}; if(pn) pn.onclick=()=>{ui.page++;renderList();};
+  }
+  function renderSettings(){
+    $('#sUnfollowTexts').value=settings.unfollowTexts.join(', ');
+    $('#sConfirmTexts').value=settings.confirmTexts.join(', ');
+    $('#sScrollMin').value=settings.scrollMin; $('#sScrollMax').value=settings.scrollMax; $('#sStale').value=settings.stale;
+    $('#wlTags').innerHTML=settings.whitelist.length?settings.whitelist.map(u=>'<span class="tag">@'+esc(u)+'<button data-wl="'+esc(u)+'" title="제거">×</button></span>').join(''):'<span class="muted">비어 있음</span>';
+  }
+  function renderAll(){ renderChip(); renderDash(); renderList(); renderSettings(); }
+
+  /* ---------- CSV / JSON ---------- */
+  function download(name,text,type){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:type||'text/plain'})); a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
+  function csv(){
+    const d=derived(); const rows=[['구분','아이디','닉네임','관계','날짜','URL']];
+    const relK={mutual:'맞팔',nfb:'나만 팔로우',fan:'팬'};
+    d.following.forEach(u=>rows.push(['팔로잉',u.username,u.nickname,relK[u.rel],u.date,u.url]));
+    d.followers.forEach(u=>rows.push(['팔로워',u.username,u.nickname,relK[u.rel],u.date,u.url]));
+    return '﻿'+rows.map(r=>r.map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  }
+
+  /* ---------- 이벤트 ---------- */
+  $('#nav').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) go(b.dataset.tab); });
+  document.addEventListener('click',e=>{
+    const g=e.target.closest('[data-go]'); if(g){ if(g.dataset.filter){ui.filter=g.dataset.filter;ui.page=1;renderList();} go(g.dataset.go); }
+    const w=e.target.closest('[data-wl]'); if(w){ settings.whitelist=settings.whitelist.filter(u=>u!==w.dataset.wl); save(); renderAll(); }
+  });
+  $('#btnCopyCollect').onclick=async()=>{ const c=collectCode(); $('#collectCode').value=c; await copy(c); toast('수집 스크립트가 복사되었습니다. 틱톡 프로필 페이지 콘솔에 붙여넣으세요.'); };
+  $('#btnShowCollect').onclick=()=>{ const t=$('#collectCode'); t.value=collectCode(); t.style.display=t.style.display==='none'?'block':'none'; };
+  const drop=$('#drop'), fi=$('#fileInput');
+  drop.onclick=()=>fi.click(); fi.onchange=()=>{ handleFiles([...fi.files]); fi.value=''; };
+  ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+  ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+  drop.addEventListener('drop',e=>handleFiles([...e.dataTransfer.files]));
+  $('#btnPasteLoad').onclick=()=>{ const t=$('#pasteBox').value.trim(); if(!t) return toast('붙여넣은 내용이 없습니다.');
+    try{ const r=ingest(t,''); $('#loadMsg').textContent='불러옴: '+(r.following!=null?'팔로잉 '+r.following+'명 ':'')+(r.followers!=null?'팔로워 '+r.followers+'명':''); $('#pasteBox').value=''; toast('불러오기 완료'); go('dash'); }
+    catch(e){ toast('실패: '+e.message); } };
+  $('#btnLoadSample').onclick=()=>{
+    const mk=(n,p)=>Array.from({length:n},(_,i)=>({username:p+(i+1),nickname:p==='creator_'?'크리에이터 '+(i+1):'사용자 '+(i+1),date:new Date(Date.now()-i*86400000*3).toISOString()}));
+    const sample={format:'tk-follow-manager',me:'sample_user',following:[...mk(18,'creator_'),...mk(12,'friend_')],followers:[...mk(12,'friend_'),...mk(9,'fan_')]};
+    ingest(JSON.stringify(sample),''); toast('샘플 데이터를 불러왔습니다 (실제 계정 아님)'); go('dash');
+  };
+  $('#btnExportJson').onclick=()=>download('tiktok_follow_backup_'+(state.me||'me')+'.json',JSON.stringify(Object.assign({format:'tk-follow-manager',version:1},state),null,2),'application/json');
+  $('#btnExportCsv').onclick=()=>download('tiktok_follow_'+(state.me||'me')+'.csv',csv(),'text/csv');
+  $('#btnClear').onclick=()=>{ if(confirm('저장된 팔로잉/팔로워 데이터를 모두 지울까요? (제외 목록과 설정은 유지)')){ state={me:'',source:'',importedAt:'',following:[],followers:[]}; ui.selected.clear(); save(); renderAll(); toast('초기화됨'); } };
+  $('#filterSeg').onclick=e=>{ const b=e.target.closest('button'); if(b){ ui.filter=b.dataset.f; ui.page=1; renderList(); } };
+  $('#q').oninput=e=>{ ui.q=e.target.value; ui.page=1; renderList(); };
+  $('#sort').onchange=e=>{ ui.sort=e.target.value; renderList(); };
+  $('#tbody').addEventListener('change',e=>{ const c=e.target.closest('.ck'); if(!c) return; if(c.checked) ui.selected.add(c.dataset.u); else ui.selected.delete(c.dataset.u); $('#selCount').textContent=ui.selected.size; $('#umSelected').textContent=ui.selected.size; });
+  $('#ckHead').onchange=e=>{ $$('#tbody .ck:not(:disabled)').forEach(c=>{ c.checked=e.target.checked; if(c.checked) ui.selected.add(c.dataset.u); else ui.selected.delete(c.dataset.u); }); renderList(); };
+  $('#btnSelAll').onclick=()=>{ if(ui.filter==='fan') return toast('팬 목록은 내가 팔로우하지 않은 계정이라 언팔로우 대상이 아닙니다.'); currentList().forEach(u=>ui.selected.add(u.username)); renderList(); };
+  $('#btnSelNone').onclick=()=>{ ui.selected.clear(); renderList(); };
+  $('#btnWl').onclick=()=>{ if(!ui.selected.size) return toast('선택된 계정이 없습니다.'); const s=new Set(settings.whitelist.map(lower)); ui.selected.forEach(u=>{ if(!s.has(lower(u))) settings.whitelist.push(u); }); save(); renderAll(); toast('제외 목록에 추가되었습니다.'); };
+  $('#btnSelUnfollow').onclick=()=>{ if(!ui.selected.size) return toast('먼저 계정을 선택하세요.'); $('input[name=umode][value=selected]').checked=true; $('#allConfirmBox').style.display='none'; renderDash(); go('unfollow'); };
+  $$('input[name=umode]').forEach(r=>r.onchange=()=>{ $('#allConfirmBox').style.display=$('input[name=umode]:checked').value==='all'?'block':'none'; });
+  $('#btnGenUnfollow').onclick=async()=>{
+    try{
+      const r=unfollowCode();
+      if(!r.cfg.dryRun){
+        const what=r.cfg.mode==='all'?'내가 팔로우한 모든 계정('+r.count+'명)':r.count+'명';
+        if(!confirm(what+'을(를) 언팔로우하는 스크립트를 생성합니다. 이번 실행 최대 '+r.cfg.maxCount+'명. 계속할까요?')) return;
+      }
+      $('#unfollowCode').value=r.code; await copy(r.code);
+      $('#unfollowMsg').textContent='복사됨 · 대상 '+r.count+'명'+(r.cfg.dryRun?' (드라이런)':'');
+      toast('언팔로우 스크립트가 복사되었습니다. 틱톡 프로필 페이지 콘솔에 붙여넣어 실행하세요.');
+    }catch(e){ toast(e.message); $('#unfollowMsg').textContent=e.message; }
+  };
+  $('#btnWlAdd').onclick=()=>{ const v=$('#wlInput').value.split(/[,\s]+/).map(s=>s.replace(/^@/,'').trim()).filter(Boolean); if(!v.length) return; const s=new Set(settings.whitelist.map(lower)); v.forEach(u=>{ if(!s.has(lower(u))){settings.whitelist.push(u);s.add(lower(u));} }); $('#wlInput').value=''; save(); renderAll(); toast('추가됨'); };
+  $('#wlInput').onkeydown=e=>{ if(e.key==='Enter') $('#btnWlAdd').click(); };
+  const splitTexts=v=>v.split(',').map(s=>s.trim()).filter(Boolean);
+  $('#btnSaveTexts').onclick=()=>{ settings.unfollowTexts=splitTexts($('#sUnfollowTexts').value); settings.confirmTexts=splitTexts($('#sConfirmTexts').value); settings.scrollMin=+$('#sScrollMin').value||900; settings.scrollMax=+$('#sScrollMax').value||1600; settings.stale=+$('#sStale').value||6; save(); renderSettings(); toast('저장됨'); };
+  $('#btnResetTexts').onclick=()=>{ settings.unfollowTexts=DEFAULT_SET.unfollowTexts.slice(); settings.confirmTexts=DEFAULT_SET.confirmTexts.slice(); settings.scrollMin=DEFAULT_SET.scrollMin; settings.scrollMax=DEFAULT_SET.scrollMax; settings.stale=DEFAULT_SET.stale; save(); renderSettings(); toast('기본값으로 복원'); };
+  ['#sScrollMin','#sScrollMax','#sStale'].forEach(s=>$(s).onchange=()=>$('#btnSaveTexts').click());
+
+  load(); renderAll();
+  if(state.following.length||state.followers.length) go('dash');
+})();
+</script>
+</body>
+</html>
