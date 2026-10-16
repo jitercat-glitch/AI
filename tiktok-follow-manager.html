@@ -337,8 +337,8 @@
     <h2>도움말 · 자주 묻는 질문</h2>
     <details><summary>왜 틱톡 로그인 버튼이 없나요?</summary><p>틱톡 공식 Login Kit는 프로필·통계(팔로워 수 등)만 제공하고, 팔로워/팔로잉 <b>목록</b>이나 <b>언팔로우</b> API는 제공하지 않습니다. 그래서 이미 로그인된 브라우저 탭에서 실행되는 스크립트 방식을 사용합니다. 비밀번호를 어디에도 입력하지 않습니다.</p></details>
     <details><summary>스크립트 실행 시 "요소를 찾을 수 없습니다" 오류</summary><p>반드시 <b>본인 프로필 페이지</b>(URL이 <code>/@내아이디</code>)에서 실행해야 합니다. 틱톡이 화면 구조를 바꾼 경우에도 발생할 수 있습니다. 페이지를 새로고침한 뒤 다시 시도해 보세요.</p></details>
-    <details><summary>수집된 인원이 실제보다 적어요</summary><p>틱톡 웹의 팝업은 스크롤 로딩이 느릴 수 있습니다. 설정에서 스크롤 대기 시간을 늘리거나(아래), 방법 B의 공식 데이터 내보내기를 사용하면 전체 목록을 정확히 받을 수 있습니다.</p>
-      <div class="opt" style="margin-top:6px"><label class="f">스크롤 대기 최소(ms)<input type="number" id="sScrollMin" value="900"></label><label class="f">스크롤 대기 최대(ms)<input type="number" id="sScrollMax" value="1600"></label><label class="f">변화 없을 때 종료 횟수<input type="number" id="sStale" value="6"></label></div></details>
+    <details><summary>수집된 인원이 실제보다 적어요 (예: 29~30명)</summary><p>틱톡 웹 팝업은 한 번에 약 30명씩 불러오고, 스크롤해야 다음 30명이 로딩됩니다. 수집 인원이 30명 근처에서 멈췄다면 자동 스크롤이 더 불러오기를 일으키지 못한 경우입니다. 스크립트 실행 중에는 틱톡 탭을 앞에 띄워 두고(다른 탭으로 전환하면 브라우저가 타이머를 늦춥니다), 그래도 적으면 팝업 목록을 마우스 휠로 한두 번 직접 내린 뒤 다시 실행하거나 아래 대기 시간을 늘려 보세요. 방법 B의 공식 데이터 내보내기는 전체 목록을 정확히 제공합니다.</p>
+      <div class="opt" style="margin-top:6px"><label class="f">스크롤 대기 최소(ms)<input type="number" id="sScrollMin" value="1200"></label><label class="f">스크롤 대기 최대(ms)<input type="number" id="sScrollMax" value="2000"></label><label class="f">변화 없을 때 종료 횟수<input type="number" id="sStale" value="8"></label></div></details>
     <details><summary>언팔로우 중 아무것도 안 눌려요</summary><p>틱톡 화면 언어가 한국어/영어가 아니면 버튼 문구를 위 설정에 추가하세요. 또 드라이런 옵션이 켜져 있지 않은지 확인하세요. 콘솔 로그에 어떤 버튼 문구가 발견됐는지 출력됩니다.</p></details>
     <details><summary>데이터는 어디에 저장되나요?</summary><p>이 HTML 파일을 연 브라우저의 localStorage에만 저장됩니다. 서버로 전송되지 않으며 '데이터 초기화'로 지울 수 있습니다.</p></details>
   </div>
@@ -360,14 +360,18 @@ async function TK_COLLECT(cfg){
   if(!/tiktok\.com$/.test(location.hostname)){alert('tiktok.com 탭에서 실행하세요.');return;}
   window.__TK_STOP=false;
   const me=((document.querySelector('h1[data-e2e="user-title"]')||{}).textContent||'').trim()||((location.pathname.match(/\/@([^\/?#]+)/)||[])[1]||'');
-  const getDialog=()=>document.querySelector('[data-e2e="follow-info-popup"]')||document.querySelector('[role="dialog"]');
-  function findScroller(root){
-    let best=null;
-    root.querySelectorAll('*').forEach(el=>{
-      const s=getComputedStyle(el);
-      if(/(auto|scroll)/.test(s.overflowY)&&el.scrollHeight>el.clientHeight+10){ if(!best||el.scrollHeight>best.scrollHeight) best=el; }
-    });
-    return best;
+  const getDialog=()=>{ const c=[...document.querySelectorAll('[data-e2e="follow-info-popup"],[role="dialog"]')]; return c.find(d=>d.querySelector('a[href*="/@"]'))||c[0]||null; };
+  async function scrollMore(dlg,jiggle){
+    const links=dlg.querySelectorAll('a[href*="/@"]'); const last=links[links.length-1];
+    const scrollers=[]; let el=last;
+    while(el&&el!==document.body){ const st=getComputedStyle(el); if(/(auto|scroll|overlay)/.test(st.overflowY)&&el.scrollHeight>el.clientHeight+5) scrollers.push(el); el=el.parentElement; }
+    if(!scrollers.length){ dlg.querySelectorAll('*').forEach(x=>{ const st=getComputedStyle(x); if(/(auto|scroll|overlay)/.test(st.overflowY)&&x.scrollHeight>x.clientHeight+5) scrollers.push(x); }); }
+    if(jiggle){ scrollers.forEach(x=>{ x.scrollTop=Math.max(0,x.scrollTop-400); x.dispatchEvent(new Event('scroll',{bubbles:true})); }); await sleep(350); }
+    if(last){ try{ last.scrollIntoView({block:'end'}); }catch(e){} }
+    scrollers.forEach(x=>{ x.scrollTop=x.scrollHeight; x.dispatchEvent(new Event('scroll',{bubbles:true})); });
+    if(last){ last.dispatchEvent(new WheelEvent('wheel',{deltaY:800,bubbles:true,cancelable:true})); }
+    if(!scrollers.length) window.scrollBy(0,600);
+    return scrollers.length;
   }
   const userOf=a=>{const m=(a.getAttribute('href')||'').match(/\/@([^\/?#]+)/);return m?decodeURIComponent(m[1]):null;};
   async function openModal(kind){
@@ -403,11 +407,15 @@ async function TK_COLLECT(cfg){
       });
       if(map.size===last) stale++; else {stale=0;last=map.size;log(kind+' '+map.size+'명 수집 중...');}
       if(stale>=cfg.staleRounds) break;
-      const s=findScroller(dlg); if(s) s.scrollTop=s.scrollHeight; else window.scrollTo(0,document.body.scrollHeight);
-      await sleep(rnd(cfg.scrollMin,cfg.scrollMax));
+      const n=await scrollMore(dlg,stale>0);
+      if(stale===2) log('더 불러오기를 기다리는 중... (스크롤 영역 '+n+'개 감지)');
+      await sleep(rnd(cfg.scrollMin,cfg.scrollMax)+(stale>0?stale*500:0));
     }
     await closeModal();
-    log(kind+' 수집 완료: '+map.size+'명');
+    const shown=((document.querySelector('[data-e2e="'+kind+'-count"]')||{}).textContent||'').trim();
+    const expected=/k|m|천|만/i.test(shown)?Infinity:(parseInt(shown.replace(/[^0-9]/g,''))||0);
+    log(kind+' 수집 완료: '+map.size+'명'+(shown?' (프로필 표시 '+shown+')':''));
+    if(map.size>0&&map.size%30<=1&&expected>map.size) log('%c⚠ 첫 페이지만 수집된 것 같습니다. 팝업을 마우스 휠로 직접 한두 번 내린 뒤 다시 실행하거나, 관리 페이지 설정에서 스크롤 대기 시간을 늘려 보세요.','color:#ffb020');
     return [...map.values()];
   }
   const out={format:'tk-follow-manager',version:1,source:'web',me,exportedAt:new Date().toISOString(),following:[],followers:[]};
@@ -439,14 +447,18 @@ async function TK_UNFOLLOW(cfg){
   const exclude=new Set((cfg.exclude||[]).map(s=>s.toLowerCase()));
   const unfollowTexts=new Set(cfg.unfollowTexts);
   const confirmTexts=new Set(cfg.confirmTexts);
-  const getDialog=()=>document.querySelector('[data-e2e="follow-info-popup"]')||document.querySelector('[role="dialog"]');
-  function findScroller(root){
-    let best=null;
-    root.querySelectorAll('*').forEach(el=>{
-      const s=getComputedStyle(el);
-      if(/(auto|scroll)/.test(s.overflowY)&&el.scrollHeight>el.clientHeight+10){ if(!best||el.scrollHeight>best.scrollHeight) best=el; }
-    });
-    return best;
+  const getDialog=()=>{ const c=[...document.querySelectorAll('[data-e2e="follow-info-popup"],[role="dialog"]')]; return c.find(d=>d.querySelector('a[href*="/@"]'))||c[0]||null; };
+  async function scrollMore(dlg,jiggle){
+    const links=dlg.querySelectorAll('a[href*="/@"]'); const last=links[links.length-1];
+    const scrollers=[]; let el=last;
+    while(el&&el!==document.body){ const st=getComputedStyle(el); if(/(auto|scroll|overlay)/.test(st.overflowY)&&el.scrollHeight>el.clientHeight+5) scrollers.push(el); el=el.parentElement; }
+    if(!scrollers.length){ dlg.querySelectorAll('*').forEach(x=>{ const st=getComputedStyle(x); if(/(auto|scroll|overlay)/.test(st.overflowY)&&x.scrollHeight>x.clientHeight+5) scrollers.push(x); }); }
+    if(jiggle){ scrollers.forEach(x=>{ x.scrollTop=Math.max(0,x.scrollTop-400); x.dispatchEvent(new Event('scroll',{bubbles:true})); }); await sleep(350); }
+    if(last){ try{ last.scrollIntoView({block:'end'}); }catch(e){} }
+    scrollers.forEach(x=>{ x.scrollTop=x.scrollHeight; x.dispatchEvent(new Event('scroll',{bubbles:true})); });
+    if(last){ last.dispatchEvent(new WheelEvent('wheel',{deltaY:800,bubbles:true,cancelable:true})); }
+    if(!scrollers.length) window.scrollBy(0,600);
+    return scrollers.length;
   }
   const userOf=a=>{const m=(a.getAttribute('href')||'').match(/\/@([^\/?#]+)/);return m?decodeURIComponent(m[1]):null;};
   const el=document.querySelector('[data-e2e="following-count"]');
@@ -488,8 +500,8 @@ async function TK_UNFOLLOW(cfg){
       const cur=new Set([...dlg.querySelectorAll('a[href*="/@"]')].map(userOf).filter(Boolean)).size;
       if(cur===known) stale++; else {stale=0;known=cur;}
       if(stale>=cfg.staleRounds){ log('목록 끝에 도달했습니다.'); break; }
-      const s=findScroller(dlg); if(s) s.scrollTop=s.scrollHeight; else window.scrollTo(0,document.body.scrollHeight);
-      await sleep(rnd(1000,1800));
+      await scrollMore(dlg,stale>0);
+      await sleep(rnd(1200,2000)+(stale>0?stale*500:0));
     }
   }
   if(done===0) log('클릭된 버튼이 없습니다. 팝업에서 발견된 버튼 문구: '+[...seenTexts].join(' | ')+' → 관리 페이지 설정의 "버튼 문구"에 추가하세요.');
@@ -506,7 +518,7 @@ async function TK_UNFOLLOW(cfg){
   const DEFAULT_SET={
     unfollowTexts:['팔로잉','Following','친구','Friends','フォロー中','友達','关注中','朋友','Siguiendo','Amigos'],
     confirmTexts:['언팔로우','Unfollow','팔로우 취소','팔로우 해제','フォロー解除','取消关注','Dejar de seguir'],
-    whitelist:[], scrollMin:900, scrollMax:1600, stale:6
+    whitelist:[], scrollMin:1200, scrollMax:2000, stale:8
   };
   let state={me:'',source:'',importedAt:'',following:[],followers:[]};
   let settings=JSON.parse(JSON.stringify(DEFAULT_SET));
@@ -613,7 +625,7 @@ async function TK_UNFOLLOW(cfg){
   /* ---------- 스크립트 생성 ---------- */
   function collectCode(){
     const cfg={collectFollowing:$('#cFollowing').checked,collectFollowers:$('#cFollowers').checked,
-      scrollMin:+$('#sScrollMin').value||900,scrollMax:+$('#sScrollMax').value||1600,staleRounds:+$('#sStale').value||6};
+      scrollMin:+$('#sScrollMin').value||1200,scrollMax:+$('#sScrollMax').value||2000,staleRounds:+$('#sStale').value||8};
     return '/* TikTok 팔로우 매니저 - 수집 스크립트. 본인 프로필 페이지(tiktok.com/@아이디) 콘솔에서 실행 */\n('+TK_COLLECT.toString()+')('+JSON.stringify(cfg)+');';
   }
   function unfollowCode(){
@@ -630,7 +642,7 @@ async function TK_UNFOLLOW(cfg){
     const cfg={mode:mode==='all'?'all':'list',targets:mode==='all'?[]:targets,exclude:exWl?wl:[],
       delayMin:delayMin*1000,delayMax:delayMax*1000,maxCount:Math.max(1,+$('#oMax').value||150),
       batchSize:Math.max(0,+$('#oBatch').value||0),batchPauseMs:Math.max(0,+$('#oBatchPause').value||0)*1000,
-      dryRun:$('#oDry').checked,unfollowTexts:settings.unfollowTexts,confirmTexts:settings.confirmTexts,staleRounds:+$('#sStale').value||6};
+      dryRun:$('#oDry').checked,unfollowTexts:settings.unfollowTexts,confirmTexts:settings.confirmTexts,staleRounds:+$('#sStale').value||8};
     const head='/* TikTok 팔로우 매니저 - 언팔로우 스크립트 ('+(cfg.mode==='all'?'팔로잉 전체 취소':'지정 '+targets.length+'명')+(cfg.dryRun?', 드라이런':'')+')\n   본인 프로필 페이지(tiktok.com/@아이디) 콘솔에서 실행. 중지: window.__TK_STOP = true */\n';
     return {code:head+'('+TK_UNFOLLOW.toString()+')('+JSON.stringify(cfg)+');',count:cfg.mode==='all'?d.following.length:targets.length,cfg};
   }
@@ -760,7 +772,7 @@ async function TK_UNFOLLOW(cfg){
   $('#btnWlAdd').onclick=()=>{ const v=$('#wlInput').value.split(/[,\s]+/).map(s=>s.replace(/^@/,'').trim()).filter(Boolean); if(!v.length) return; const s=new Set(settings.whitelist.map(lower)); v.forEach(u=>{ if(!s.has(lower(u))){settings.whitelist.push(u);s.add(lower(u));} }); $('#wlInput').value=''; save(); renderAll(); toast('추가됨'); };
   $('#wlInput').onkeydown=e=>{ if(e.key==='Enter') $('#btnWlAdd').click(); };
   const splitTexts=v=>v.split(',').map(s=>s.trim()).filter(Boolean);
-  $('#btnSaveTexts').onclick=()=>{ settings.unfollowTexts=splitTexts($('#sUnfollowTexts').value); settings.confirmTexts=splitTexts($('#sConfirmTexts').value); settings.scrollMin=+$('#sScrollMin').value||900; settings.scrollMax=+$('#sScrollMax').value||1600; settings.stale=+$('#sStale').value||6; save(); renderSettings(); toast('저장됨'); };
+  $('#btnSaveTexts').onclick=()=>{ settings.unfollowTexts=splitTexts($('#sUnfollowTexts').value); settings.confirmTexts=splitTexts($('#sConfirmTexts').value); settings.scrollMin=+$('#sScrollMin').value||1200; settings.scrollMax=+$('#sScrollMax').value||2000; settings.stale=+$('#sStale').value||8; save(); renderSettings(); toast('저장됨'); };
   $('#btnResetTexts').onclick=()=>{ settings.unfollowTexts=DEFAULT_SET.unfollowTexts.slice(); settings.confirmTexts=DEFAULT_SET.confirmTexts.slice(); settings.scrollMin=DEFAULT_SET.scrollMin; settings.scrollMax=DEFAULT_SET.scrollMax; settings.stale=DEFAULT_SET.stale; save(); renderSettings(); toast('기본값으로 복원'); };
   ['#sScrollMin','#sScrollMax','#sStale'].forEach(s=>$(s).onchange=()=>$('#btnSaveTexts').click());
 
