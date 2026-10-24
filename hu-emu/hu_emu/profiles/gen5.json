@@ -1,0 +1,19 @@
+{
+  "id": "gen5",
+  "name": "표준형 5세대 (10.25\")",
+  "description": "표준형 5세대 내비게이션",
+  "display": {"width": 1920, "height": 720, "diagonal_inch": 10.25},
+  "system": {
+    "machine": "virt",
+    "cpu": "max",
+    "memory_mb": 2048,
+    "smp": 2,
+    "cmdline": "console=ttyAMA0 rw rootwait"
+  },
+  "env": {
+    "LANG": "ko_KR.UTF-8",
+    "XDG_RUNTIME_DIR": "/tmp/xdg-runtime"
+  },
+  "hmi_keywords": ["hmi", "launcher", "home", "navi", "avn", "ui", "app"],
+  "notes": "해상도·메모리 값은 에뮬레이터 기본값입니다. 분석한 펌웨어에서 확인한 값이 있으면 이 파일을 고치세요."
+}
