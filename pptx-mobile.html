@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f6feb">
+<title>PPTX 모바일</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--fg:#1d2330;--muted:#6b7280;--accent:#1f6feb;--line:#d9dde3}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--card:#1b2027;--fg:#e8eaee;--muted:#9aa3ad;--accent:#4c8dff;--line:#2c333c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+header h1{font-size:17px;margin:0 auto 0 0}
+button,.btn{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:15px;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+button:disabled{opacity:.4}
+main{padding:16px;max-width:1000px;margin:0 auto}
+#status{color:var(--muted);font-size:14px;margin:0 0 12px}
+.slide-wrap{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px;margin-bottom:16px}
+.slide-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);padding:2px 4px 8px}
+.slide-head button{padding:4px 10px;font-size:13px}
+.slide{position:relative;width:100%;overflow:hidden;background:#fff;color:#000;container-type:inline-size}
+.slide .el{position:absolute;overflow:hidden}
+.slide .txt{display:flex;flex-direction:column;padding:.6cqw 1cqw;line-height:1.15;word-break:keep-all}
+.slide p{margin:0}
+.slide [contenteditable]{outline:none}
+.slide [contenteditable]:focus{background:rgba(31,111,235,.12)}
+.slide img{width:100%;height:100%;object-fit:fill;display:block}
+dialog{border:0;border-radius:14px;padding:16px;width:min(560px,calc(100vw - 32px));background:var(--card);color:var(--fg)}
+dialog textarea,dialog input{width:100%;font-size:15px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
+dialog textarea{height:220px}
+.row{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.hint{font-size:13px;color:var(--muted)}
+.empty{text-align:center;color:var(--muted);padding:48px 8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>PPTX 모바일</h1>
+  <label class="btn">열기<input id="file" type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" hidden></label>
+  <button id="newBtn" class="ghost">새로 만들기</button>
+  <button id="saveBtn" disabled>저장</button>
+</header>
+<main>
+  <p id="status">.pptx 파일을 열어 보고, 글자를 눌러 바로 수정한 뒤 저장할 수 있어요.</p>
+  <div id="slides"><div class="empty">열린 파일이 없습니다</div></div>
+</main>
+
+<dialog id="newDlg">
+  <h3 style="margin-top:0">새 프레젠테이션</h3>
+  <input id="newTitle" placeholder="파일 제목">
+  <p class="hint">슬라이드마다 빈 줄로 구분하세요. 첫 줄은 제목, 나머지 줄은 글머리 항목이 됩니다.</p>
+  <textarea id="newBody">첫 번째 슬라이드
+부제목 또는 설명
+
+두 번째 슬라이드
+항목 하나
+항목 둘</textarea>
+  <div class="row"><button class="ghost" id="newCancel">취소</button><button id="newMake">만들기</button></div>
+</dialog>
+
+<script>
+const NS={a:"http://schemas.openxmlformats.org/drawingml/2006/main",p:"http://schemas.openxmlformats.org/presentationml/2006/main",r:"http://schemas.openxmlformats.org/officeDocument/2006/relationships"};
+const EMU_PT=12700;
+let zip=null, fileName="presentation.pptx", slideDocs=[], dirty=new Set(), sldW=12192000, sldH=6858000;
+const $=id=>document.getElementById(id);
+const parse=s=>new DOMParser().parseFromString(s,"application/xml");
+const kids=(n,ns,name)=>n?[...n.childNodes].filter(c=>c.namespaceURI===NS[ns]&&c.localName===name):[];
+const kid=(n,ns,name)=>kids(n,ns,name)[0]||null;
+const status=t=>$("status").textContent=t;
+
+function resolve(base,target){
+  if(target.startsWith("/"))return target.slice(1);
+  const parts=base.split("/");parts.pop();
+  for(const s of target.split("/")){if(s==="..")parts.pop();else if(s!==".")parts.push(s);}
+  return parts.join("/");
+}
+async function rels(path){
+  const i=path.lastIndexOf("/"),rp=path.slice(0,i)+"/_rels/"+path.slice(i+1)+".rels";
+  const f=zip.file(rp);const map={};
+  if(!f)return map;
+  const d=parse(await f.async("string"));
+  for(const r of d.getElementsByTagName("Relationship"))map[r.getAttribute("Id")]={target:resolve(path,r.getAttribute("Target")),type:r.getAttribute("Type"),ext:r.getAttribute("TargetMode")==="External"};
+  return map;
+}
+function color(fillParent){
+  const sf=kid(fillParent,"a","solidFill");if(!sf)return null;
+  const s=kid(sf,"a","srgbClr");if(s)return "#"+s.getAttribute("val");
+  const sc=kid(sf,"a","schemeClr");
+  if(sc){const v=sc.getAttribute("val");return {bg1:"#ffffff",lt1:"#ffffff",tx1:"#000000",dk1:"#000000",bg2:"#e7e6e6",tx2:"#44546a",accent1:"#4472c4",accent2:"#ed7d31",accent3:"#a5a5a5",accent4:"#ffc000",accent5:"#5b9bd5",accent6:"#70ad47"}[v]||null}
+  return null;
+}
+
+async function openFile(file){
+  try{
+    status("불러오는 중…");
+    fileName=file.name;zip=await JSZip.loadAsync(file);
+    const pres=parse(await zip.file("ppt/presentation.xml").async("string"));
+    const sz=pres.getElementsByTagNameNS(NS.p,"sldSz")[0];
+    if(sz){sldW=+sz.getAttribute("cx");sldH=+sz.getAttribute("cy");}
+    const pr=await rels("ppt/presentation.xml");
+    const ids=[...pres.getElementsByTagNameNS(NS.p,"sldId")].map(n=>n.getAttributeNS(NS.r,"id"));
+    slideDocs=[];dirty.clear();
+    for(const id of ids){const path=pr[id].target;slideDocs.push({path,doc:parse(await zip.file(path).async("string")),rels:await rels(path)});}
+    await renderAll();
+    $("saveBtn").disabled=false;
+    status(`${fileName} · 슬라이드 ${slideDocs.length}장`);
+  }catch(e){console.error(e);status("파일을 열 수 없습니다: "+e.message);}
+}
+
+async function renderAll(){
+  const box=$("slides");box.innerHTML="";
+  for(let i=0;i<slideDocs.length;i++){
+    const s=slideDocs[i];
+    const wrap=document.createElement("div");wrap.className="slide-wrap";
+    wrap.innerHTML=`<div class="slide-head"><span>슬라이드 ${i+1}</span></div>`;
+    const el=document.createElement("div");el.className="slide";el.style.aspectRatio=`${sldW}/${sldH}`;
+    const cSld=s.doc.getElementsByTagNameNS(NS.p,"cSld")[0];
+    const bgPr=cSld&&kid(kid(cSld,"p","bg"),"p","bgPr");
+    const bg=bgPr&&color(bgPr);if(bg)el.style.background=bg;
+    const tree=cSld&&kid(cSld,"p","spTree");
+    if(tree)await renderTree(tree,el,s,{ox:0,oy:0,sx:1,sy:1});
+    wrap.appendChild(el);box.appendChild(wrap);
+  }
+}
+
+function box(xfrm,t){
+  const off=kid(xfrm,"a","off"),ext=kid(xfrm,"a","ext");
+  if(!off||!ext)return null;
+  const x=t.ox+(+off.getAttribute("x"))*t.sx,y=t.oy+(+off.getAttribute("y"))*t.sy;
+  const w=(+ext.getAttribute("cx"))*t.sx,h=(+ext.getAttribute("cy"))*t.sy;
+  return {x,y,w,h,rot:+(xfrm.getAttribute("rot")||0)/60000};
+}
+function place(div,b){
+  Object.assign(div.style,{left:b.x/sldW*100+"%",top:b.y/sldH*100+"%",width:b.w/sldW*100+"%",height:b.h/sldH*100+"%"});
+  if(b.rot)div.style.transform=`rotate(${b.rot}deg)`;
+}
+// font size in pt -> container query width units
+const pt2cq=pt=>(pt*EMU_PT/sldW*100).toFixed(3)+"cqw";
+
+async function renderTree(tree,host,s,t){
+  for(const n of tree.childNodes){
+    if(n.nodeType!==1)continue;
+    const name=n.localName;
+    if(name==="grpSp"){
+      const xf=kid(kid(n,"p","grpSpPr"),"a","xfrm");if(!xf){await renderTree(n,host,s,t);continue;}
+      const b=box(xf,t);const co=kid(xf,"a","chOff"),ce=kid(xf,"a","chExt");
+      const cx=+ce.getAttribute("cx")||1,cy=+ce.getAttribute("cy")||1;
+      const sx=b.w/cx,sy=b.h/cy;
+      await renderTree(n,host,s,{ox:b.x-(+co.getAttribute("x"))*sx,oy:b.y-(+co.getAttribute("y"))*sy,sx,sy});
+    }else if(name==="sp"){
+      const spPr=kid(n,"p","spPr");const b=box(kid(spPr,"a","xfrm"),t);
+      if(!b)continue; // placeholder without own position: skip geometry inheritance for simplicity
+      const div=document.createElement("div");div.className="el txt";place(div,b);
+      const f=color(spPr);if(f)div.style.background=f;
+      const ln=kid(spPr,"a","ln");const lc=ln&&color(ln);if(lc)div.style.border=`1px solid ${lc}`;
+      const geom=kid(spPr,"a","prstGeom");if(geom&&geom.getAttribute("prst")==="ellipse")div.style.borderRadius="50%";
+      const txBody=kid(n,"p","txBody");
+      if(txBody){
+        const bp=kid(txBody,"a","bodyPr");const anchor=bp&&bp.getAttribute("anchor");
+        div.style.justifyContent=anchor==="ctr"?"center":anchor==="b"?"flex-end":"flex-start";
+        const isTitle=!!n.querySelector&&[...n.getElementsByTagNameNS(NS.p,"ph")].some(p=>/title/i.test(p.getAttribute("type")||""));
+        for(const para of kids(txBody,"a","p")){
+          const pEl=document.createElement("p");
+          const pPr=kid(para,"a","pPr");const al=pPr&&pPr.getAttribute("algn");
+          if(al)pEl.style.textAlign={ctr:"center",r:"right",just:"justify"}[al]||"left";
+          const runs=[...kids(para,"a","r"),...kids(para,"a","fld")];
+          if(!runs.length)pEl.innerHTML="&nbsp;";
+          for(const r of runs){
+            const tNode=kid(r,"a","t");if(!tNode)continue;
+            const span=document.createElement("span");span.textContent=tNode.textContent;
+            const rPr=kid(r,"a","rPr");
+            let sz=rPr&&rPr.getAttribute("sz");sz=sz?sz/100:(isTitle?40:18);
+            span.style.fontSize=pt2cq(sz);
+            if(rPr){if(rPr.getAttribute("b")==="1")span.style.fontWeight="bold";if(rPr.getAttribute("i")==="1")span.style.fontStyle="italic";
+              if(rPr.getAttribute("u")&&rPr.getAttribute("u")!=="none")span.style.textDecoration="underline";
+              const c=color(rPr);if(c)span.style.color=c;}
+            else if(isTitle)span.style.fontWeight="bold";
+            span.contentEditable="true";span.spellcheck=false;
+            span.addEventListener("input",()=>{tNode.textContent=span.textContent;dirty.add(s.path);status(`${fileName} · 수정됨 (저장 필요)`);});
+            span.addEventListener("keydown",e=>{if(e.key==="Enter")e.preventDefault();});
+            pEl.appendChild(span);
+          }
+          div.appendChild(pEl);
+        }
+      }
+      host.appendChild(div);
+    }else if(name==="pic"){
+      const b=box(kid(kid(n,"p","spPr"),"a","xfrm"),t);if(!b)continue;
+      const blip=n.getElementsByTagNameNS(NS.a,"blip")[0];const rid=blip&&blip.getAttributeNS(NS.r,"embed");
+      const rel=rid&&s.rels[rid];if(!rel||rel.ext)continue;
+      const f=zip.file(rel.target);if(!f)continue;
+      const ext=rel.target.split(".").pop().toLowerCase();
+      const mime={png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg",gif:"image/gif",svg:"image/svg+xml",bmp:"image/bmp",webp:"image/webp"}[ext];
+      if(!mime)continue;
+      const url=URL.createObjectURL(new Blob([await f.async("uint8array")],{type:mime}));
+      const div=document.createElement("div");div.className="el";place(div,b);
+      div.innerHTML=`<img alt="" src="${url}">`;host.appendChild(div);
+    }else if(name==="graphicFrame"){
+      const xf=kid(n,"p","xfrm");const b=xf&&box(xf,t);if(!b)continue;
+      const tbl=n.getElementsByTagNameNS(NS.a,"tbl")[0];
+      const div=document.createElement("div");div.className="el";place(div,b);
+      if(tbl){
+        const table=document.createElement("table");table.style.cssText="width:100%;height:100%;border-collapse:collapse";
+        for(const tr of tbl.getElementsByTagNameNS(NS.a,"tr")){
+          const row=table.insertRow();
+          for(const tc of kids(tr,"a","tc")){const c=row.insertCell();c.style.cssText=`border:1px solid #999;font-size:${pt2cq(12)};padding:.3cqw`;c.textContent=[...tc.getElementsByTagNameNS(NS.a,"t")].map(x=>x.textContent).join(" ");}
+        }
+        div.appendChild(table);
+      }else{div.style.cssText+=";border:1px dashed #aaa;display:flex;align-items:center;justify-content:center;color:#888;font-size:"+pt2cq(12);div.textContent="차트/개체";}
+      host.appendChild(div);
+    }
+  }
+}
+
+async function save(){
+  if(!zip)return;
+  const ser=new XMLSerializer();
+  for(const s of slideDocs)if(dirty.has(s.path))zip.file(s.path,ser.serializeToString(s.doc));
+  const blob=await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.presentationml.presentation"});
+  download(blob,fileName.replace(/\.pptx$/i,"")+"_수정.pptx");
+  dirty.clear();status(`${fileName} · 저장 완료`);
+}
+function download(blob,name){
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
+}
+
+async function makeNew(){
+  const title=$("newTitle").value.trim()||"새 프레젠테이션";
+  const blocks=$("newBody").value.split(/\n\s*\n/).map(b=>b.split("\n").map(l=>l.trim()).filter(Boolean)).filter(b=>b.length);
+  const pptx=new PptxGenJS();pptx.layout="LAYOUT_WIDE";pptx.title=title;
+  blocks.forEach((b,i)=>{
+    const sl=pptx.addSlide();
+    if(i===0&&b.length<=2){
+      sl.addText(b[0],{x:0.5,y:2.4,w:12.3,h:1.2,fontSize:40,bold:true,align:"center"});
+      if(b[1])sl.addText(b[1],{x:0.5,y:3.7,w:12.3,h:0.8,fontSize:22,color:"666666",align:"center"});
+    }else{
+      sl.addText(b[0],{x:0.5,y:0.4,w:12.3,h:1,fontSize:32,bold:true});
+      if(b.length>1)sl.addText(b.slice(1).map(t=>({text:t,options:{bullet:true}})),{x:0.7,y:1.6,w:12,h:5.2,fontSize:22,valign:"top"});
+    }
+  });
+  const blob=await pptx.write({outputType:"blob"});
+  $("newDlg").close();
+  const file=new File([blob],title+".pptx");
+  download(blob,file.name);
+  await openFile(file);
+}
+
+$("file").addEventListener("change",e=>{const f=e.target.files[0];if(f)openFile(f);e.target.value="";});
+$("saveBtn").onclick=save;
+$("newBtn").onclick=()=>$("newDlg").showModal();
+$("newCancel").onclick=()=>$("newDlg").close();
+$("newMake").onclick=()=>makeNew().catch(e=>status("생성 실패: "+e.message));
+window.addEventListener("beforeunload",e=>{if(dirty.size){e.preventDefault();e.returnValue="";}});
+</script>
+</body>
+</html>
