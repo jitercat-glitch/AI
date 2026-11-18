@@ -225,6 +225,11 @@ async function save(){
   dirty.clear();status(`${fileName} · 저장 완료`);
 }
 function download(blob,name){
+  if(window.AndroidBridge){
+    const fr=new FileReader();
+    fr.onload=()=>{const ok=AndroidBridge.saveFile(name,fr.result.split(",")[1]);status(ok?`다운로드 폴더에 저장됨: ${name}`:"저장 실패");};
+    fr.readAsDataURL(blob);return;
+  }
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
 }
@@ -250,6 +255,11 @@ async function makeNew(){
   await openFile(file);
 }
 
+// Called by the Android app when a .pptx is opened from another app
+window.openFromBase64=(b64,name)=>{
+  const bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+  openFile(new File([u],name||"presentation.pptx"));
+};
 $("file").addEventListener("change",e=>{const f=e.target.files[0];if(f)openFile(f);e.target.value="";});
 $("saveBtn").onclick=save;
 $("newBtn").onclick=()=>$("newDlg").showModal();
